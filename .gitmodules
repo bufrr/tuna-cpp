@@ -1,0 +1,6 @@
+[submodule "smux-cpp"]
+	path = smux-cpp
+	url = git@github.com:nknorg/smux-cpp.git
+[submodule "nkn-sdk-cpp"]
+	path = nkn-sdk-cpp
+	url = git@github.com:nknorg/nkn-sdk-cpp.git
