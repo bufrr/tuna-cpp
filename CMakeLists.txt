@@ -19,15 +19,16 @@ find_package(cpprestsdk REQUIRED)
 
 
 set(SOURCES
+        main.cpp
+        entry.cpp
+        nkn.cpp nkn_client_session.cpp nkn_local.cpp
+        pb/tuna.pb.cc
+        pb/transaction.pb.cc
         smux-cpp/utils.cpp
         smux-cpp/smux.cpp
         smux-cpp/local.cpp
         smux-cpp/client_session.cpp
-        main.cpp
-        entry.cpp
         smux-cpp/encrypt.cpp
-        pb/tuna.pb.cc
-        pb/transaction.pb.cc
         nkn-sdk-cpp/json/NKNCodec.cpp
         nkn-sdk-cpp/config.cpp
         nkn-sdk-cpp/rpc.cpp
@@ -36,28 +37,27 @@ set(SOURCES
         nkn-sdk-cpp/wallet/wallet.cpp
         nkn-sdk-cpp/wallet/nanopay.cpp
         nkn-sdk-cpp/transaction/txBuilder.cpp
-        nkn-sdk-cpp/transaction/transaction.cpp
-        nkn.cpp nkn_client_session.cpp nkn_local.cpp)
+        nkn-sdk-cpp/transaction/transaction.cpp)
 
 # Headers
 set(HEADERS
-        smux-cpp/smux.h
+        entry.h
         config.h
+        base64.hpp
+        nkn.h
+        nkn_local.h
+        nkn_client_session.h
+        smux-cpp/smux.h
         smux-cpp/encoding.h
         smux-cpp/utils.h
         smux-cpp/frame.h
         smux-cpp/local.h
-        entry.h
         smux-cpp/client_session.h
         smux-cpp/encoder.h
         smux-cpp/encrypt.h
         pb/tuna.pb.h
         pb/transaction.pb.h
-        nkn-sdk-cpp/json/NKNCodec.h
-        base64.hpp
-        nkn.h
-        nkn_client_session.h
-        nkn_local.h)
+        nkn-sdk-cpp/json/NKNCodec.h)
 
 add_executable(entry main.cpp ${SOURCES})
 
