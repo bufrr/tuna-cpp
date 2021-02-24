@@ -6,21 +6,10 @@
 
 #include <utility>
 
-using boost::asio::ip::tcp;
-
-static const int conn_num = 1;
-
 entry::entry(boost::asio::io_context &io_context,
              const tcp::endpoint &from,
-             const string seed, shared_ptr<node_info> ni, bool *stop) : context_(io_context),
-                                                                        socket_(io_context),
-                                                                        from_endpoint_(from),
-                                                                        acceptor_(io_context, from),
-                                                                        ni_(ni) {
-    stop_ = stop;
-    auto acc = Wallet::Account::NewAccount(seed);                       // new Random account
-    wallet_ = Wallet::NewWallet(acc, Wallet::WalletCfg::MergeWalletConfig(
-            nullptr));
+             const string &seed, shared_ptr<node_info> ni, bool *stop) : tuna(io_context, seed, std::move(ni), stop),
+                                                                         acceptor_(io_context, from) {
 }
 
 entry::~entry() {
@@ -53,23 +42,9 @@ void entry::do_accept() {
                 if (!sess) {
                     return;
                 }
-                std::make_shared<nkn_client_session>(sock, sess)->run();
+                std::make_shared<nkn_client_session>(sock, sess)->run(ni_->service_id);
             });
         });
         do_accept();
     });
 }
-
-void entry::async_choose_local(std::function<void(std::shared_ptr<nkn_Local>)> f) {
-    auto i = rand() % conn_num;
-    auto local = locals_[i].lock();
-    if ((!local) || local->is_destroyed()) {
-        local = std::make_shared<nkn_Local>(context_, wallet_, ni_, stop_);
-        local->run();
-        locals_[i] = local;
-        f(local);
-        return;
-    }
-    f(local);
-}
-

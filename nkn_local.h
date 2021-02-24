@@ -33,7 +33,7 @@ public:
 
     void async_connect(std::function<void(std::shared_ptr<smux_sess>)> handler) override;
 
-    void read_write_conn_metadata(std::shared_ptr<tcp::socket> sock, pb::ConnectionMetadata md);
+    void negotiate_conn_metadata(std::shared_ptr<tcp::socket> sock, pb::ConnectionMetadata md);
 
     void send_payment(uint32_t sid);
 
@@ -57,7 +57,6 @@ private:
     char plain_[65536]{};
     char nanopay_buf_[256]{};
     char stream_metadata_buf_[128];
-    //tcp::endpoint ep_;
 
 
     shared_ptr<Wallet::Wallet> wallet_;

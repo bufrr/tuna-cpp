@@ -12,9 +12,10 @@
 using boost::asio::ip::tcp;
 using namespace NKN;
 
-struct node_info final {
+struct node_info {
     std::string ip;
     uint port;
+    uint service_id;
     std::string price;
     std::string beneficiary_addr;
     std::string pubkey;

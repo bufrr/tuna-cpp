@@ -44,11 +44,12 @@ nkn_Local::nkn_Local(boost::asio::io_context &io_context, shared_ptr<Wallet::Wal
 }
 
 void nkn_Local::run() {
+    TRACE
     auto self = shared_from_this();
     pb::ConnectionMetadata md;
     md.set_encryption_algo(pb::ENCRYPTION_XSALSA20_POLY1305);
     md.set_public_key(pk_, crypto_sign_ed25519_PUBLICKEYBYTES);
-    read_write_conn_metadata(sock_, md);
+    negotiate_conn_metadata(sock_, md);
 
     out2 = [this, self](char *buf, std::size_t len, Handler handler) mutable {
         if (*stop_) {
@@ -90,7 +91,7 @@ void nkn_Local::run() {
                                                     len - crypto_box_NONCEBYTES,
                                                     nonce, enc_key_);
 
-        //std::cout << "decrypt status:" << success << std::endl;
+        std::cout << "decrypt status:" << success << std::endl;
 
         //unpaid_bytes_ += len;
         total_in_bytes_ += len;
@@ -111,7 +112,7 @@ void nkn_Local::run() {
 
     smux_->run();
     //std::this_thread::sleep_for(std::chrono::milliseconds(1000)); // sleep for 1 second
-    send_payment(99999);
+    //send_payment(99999);
 
     do_sess_receive();
 }
@@ -147,7 +148,7 @@ void nkn_Local::do_sess_receive() {
 }
 
 
-void nkn_Local::read_write_conn_metadata(shared_ptr<tcp::socket> sock, pb::ConnectionMetadata md) {
+void nkn_Local::negotiate_conn_metadata(shared_ptr<tcp::socket> sock, pb::ConnectionMetadata md) {
     auto self = shared_from_this();
 
     auto read_len = read_var_bytes(sock, conn_metadata_);
@@ -208,7 +209,7 @@ void nkn_Local::send_payment(uint32_t sid) {
 
     auto md = std::make_shared<pb::StreamMetadata>();
     md->set_port_id(0);
-    md->set_service_id(0);
+    md->set_service_id(ni_->service_id);
     md->set_is_payment(true);
 
     size_t md_buf_len = md->ByteSizeLong();

@@ -24,10 +24,11 @@ shared_ptr<node_info> get_node_info_from_pubsub(const string &topic, const strin
     auto price = service_md->price();
     auto port = service_md->tcp_port();
     auto beneficiary_addr = service_md->beneficiary_addr();
+    auto service_id = service_md->service_id();
     if (beneficiary_addr.empty()) {
         beneficiary_addr = NKN::ED25519::PubKey(pk).toProgramHash().toAddress();
     }
-    auto ni = make_shared<node_info>(node_info{ip, port, price, beneficiary_addr, pk});
+    auto ni = make_shared<node_info>(node_info{ip, port, service_id, price, beneficiary_addr, pk});
     std::cout << ni->pubkey << std::endl;
     return ni;
 }
@@ -44,11 +45,12 @@ shared_ptr<node_info> get_node_info_from_metadata(const string &metadata, const 
     auto price = service_md->price();
     auto port = service_md->tcp_port();
     auto beneficiary_addr = service_md->beneficiary_addr();
+    auto service_id = service_md->service_id();
     if (beneficiary_addr.empty()) {
         beneficiary_addr = NKN::ED25519::PubKey(pk).toProgramHash().toAddress();
     }
 
-    auto ni = make_shared<node_info>(node_info{ip, port, price, beneficiary_addr, pk});
+    auto ni = make_shared<node_info>(node_info{ip, port, service_id, price, beneficiary_addr, pk});
     return ni;
 }
 
@@ -65,4 +67,29 @@ void write_var_bytes(std::shared_ptr<tcp::socket> s, char *buf, std::size_t len)
     encode32u(reinterpret_cast<byte *>(len_buf), len);
     boost::asio::write(*s, boost::asio::buffer(len_buf, 4));
     boost::asio::write(*s, boost::asio::buffer(buf, len));
+}
+
+int serialize_stream_metadata(int port_id, int service_id, bool is_payment, char *metadata, uint16_t *mlen) {
+    auto md = std::make_shared<pb::StreamMetadata>();
+    md->set_port_id(port_id);
+    md->set_service_id(service_id);
+    md->set_is_payment(is_payment);
+    size_t meta_len = md->ByteSizeLong();
+    char buf[meta_len];
+    md->SerializeToArray(buf, meta_len);
+
+    char len_buf[4];
+    encode32u(reinterpret_cast<byte *>(len_buf), meta_len);
+    char *buf_with_len = static_cast<char *>(malloc(meta_len + 4));
+    memcpy(buf_with_len, len_buf, 4);
+    memcpy(buf_with_len + 4, buf, meta_len);
+    metadata = buf_with_len;
+    *mlen = meta_len;
+}
+
+void concat_data_with_length(char *data, uint32_t dlen, char *ldata) {
+    char len[4];
+    encode32u(reinterpret_cast<byte *>(len), dlen);
+    memcpy(ldata, len, 4);
+    memcpy(ldata + 4, data, dlen);
 }

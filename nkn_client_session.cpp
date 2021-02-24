@@ -5,8 +5,13 @@
 #include "nkn_client_session.h"
 
 
-void nkn_client_session::run() {
-    async_write_stream_metadata(0, 0, false);
+nkn_client_session::nkn_client_session(std::shared_ptr<tcp::socket> sock, std::shared_ptr<smux_sess> sess)
+        : client_session(sock, sess) {
+}
+
+void nkn_client_session::run(uint service_id) {
+    TRACE
+    async_write_stream_metadata(0, service_id, false);
 }
 
 void nkn_client_session::async_write_stream_metadata(int port_id, int service_id, bool is_payment) {
@@ -30,8 +35,4 @@ void nkn_client_session::async_write_stream_metadata(int port_id, int service_id
                            free(buf_with_len);
                            client_session::run();
                        });
-}
-
-nkn_client_session::nkn_client_session(std::shared_ptr<tcp::socket> sock, std::shared_ptr<smux_sess> sess)
-        : client_session(sock, sess) {
 }

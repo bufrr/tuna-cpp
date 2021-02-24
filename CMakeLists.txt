@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.17)
-project(entry C CXX)
+project(tuna C CXX)
 enable_testing()
 set(CMAKE_CXX_STANDARD 11)
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -g")
@@ -37,11 +37,13 @@ set(SOURCES
         nkn-sdk-cpp/wallet/wallet.cpp
         nkn-sdk-cpp/wallet/nanopay.cpp
         nkn-sdk-cpp/transaction/txBuilder.cpp
-        nkn-sdk-cpp/transaction/transaction.cpp)
+        nkn-sdk-cpp/transaction/transaction.cpp tuna_exit.cpp tuna.cpp)
 
 # Headers
 set(HEADERS
+        tuna.h
         entry.h
+        tuna_exit.h
         config.h
         base64.hpp
         nkn.h
