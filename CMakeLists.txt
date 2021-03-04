@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.17)
 project(tuna C CXX)
 enable_testing()
 set(CMAKE_CXX_STANDARD 11)
-#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -g")
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -g -fno-omit-frame-pointer")
 MESSAGE(STATUS "CMAKE_CXX_FLAGS: " ${CMAKE_CXX_FLAGS})
 set(Boost_USE_MULTITHREADED FALSE)
 
