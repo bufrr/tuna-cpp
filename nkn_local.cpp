@@ -37,7 +37,8 @@ nkn_Local::nkn_Local(boost::asio::io_context &io_context, shared_ptr<Wallet::Wal
     auto pk = Uint256(0);
     pk.FromHexString(ni->pubkey);
     memcpy(remote_pk_, pk.toBytes().c_str(), sizeof remote_pk_);
-    remote_beneficiary_ = ED25519::PubKey(pk).toProgramHash().toAddress();
+    //remote_beneficiary_ = ED25519::PubKey(pk).toProgramHash().toAddress();
+    remote_beneficiary_ = ni_->beneficiary_addr;
 
     //prepare_wallet();
     last_payment_ = boost::posix_time::second_clock::local_time();
@@ -91,12 +92,8 @@ void nkn_Local::run() {
                                                     len - crypto_box_NONCEBYTES,
                                                     nonce, enc_key_);
 
-        std::cout << "decrypt status:" << success << std::endl;
-
-        //unpaid_bytes_ += len;
         total_in_bytes_ += len;
-        //auto up = unpaid_bytes_.load();
-        //std::cout << "unpaid bytes number: " << up / (1024.0 * 1024) << " M" << std::endl;
+
         smux_->async_input(plain_, len - crypto_box_NONCEBYTES - crypto_box_MACBYTES,
                            [this, self, handler](std::error_code ec, std::size_t len) {
 //                               //unpaid_bytes_.fetch_add(len);
@@ -112,7 +109,8 @@ void nkn_Local::run() {
 
     smux_->run();
     //std::this_thread::sleep_for(std::chrono::milliseconds(1000)); // sleep for 1 second
-    //send_payment(99999);
+    send_payment(99999);
+    //set_service_metadata(9999);
 
     do_sess_receive();
 }
@@ -253,9 +251,13 @@ void nkn_Local::payment_checker(uint32_t sid) {
                 auto unpaid_bytes = total_in_bytes_.load() + total_out_bytes_.load() - paid_bytes_.load();
                 auto now = boost::posix_time::second_clock::local_time();
                 auto duration = now - last_payment_;
+                //auto cost = unpaid_bytes
                 if (unpaid_bytes >= 32 * 1024 * 1024 || (duration.total_seconds() > 60 && unpaid_bytes > 0)) {
                     auto price = stof(ni_->price);
-                    string cost = ToString(price * unpaid_bytes / (1024 * 1024));
+//                    if (price <= 0) {
+//                        return;
+//                    }
+                    string cost = ToString(price * unpaid_bytes / (1024.0 * 1024));
                     cout << "cost:" << cost << endl;
                     cout << "duration:" << duration.total_seconds() << endl;
                     std::error_code ec;
@@ -291,6 +293,44 @@ void nkn_Local::payment_checker(uint32_t sid) {
                 }
                 payment_checker(sid);
             });
+}
+
+void nkn_Local::set_service_metadata(uint32_t sid) {
+    auto self = shared_from_this();
+    cout << "set_service_metadata" << endl;
+
+    smux_->async_write_frame(frame{VERSION, cmdSyn, 0, sid}, nullptr);
+
+    auto md = std::make_shared<pb::ServiceMetadata>();
+    md->set_ip("");
+    md->set_service_id(ni_->service_id);
+    md->set_tcp_port(0);
+    md->set_udp_port(0);
+    md->set_service_tcp(0, 0);
+    md->set_service_udp(0, 0);
+    md->set_price("");
+    md->set_beneficiary_addr("");
+
+
+    size_t md_buf_len = md->ByteSizeLong();
+    //char service_md_buf[md_buf_len];
+    md->SerializeToArray(service_metadata_buf_, md_buf_len);
+    std::vector<byte> byte_vec;
+    byte_vec.assign(service_metadata_buf_, service_metadata_buf_ + sizeof(service_metadata_buf_));
+    auto encoded = base64::encode(byte_vec);
+    //std::string raw_md(begin(decoded), end(decoded));
+    auto md_bytes = encoded.c_str();
+
+    auto sess = std::make_shared<smux_sess>(context_, sid, VERSION, std::weak_ptr<smux>(smux_));
+
+    sess->async_write(const_cast<char *>(md_bytes), md_buf_len, [this, self, sess](std::error_code, std::size_t) {
+        char *received_metadata = static_cast<char *>(malloc(1024));
+        sess->async_read_some(received_metadata, 1024, [this, self, sess](std::error_code, std::size_t) {
+            auto service_md = std::make_shared<pb::ServiceMetadata>();
+            service_md->ParseFromArray(service_metadata_buf_, 1024);
+            cout << "port:" << service_md->tcp_port() << endl;
+        });
+    });
 }
 
 

@@ -5,19 +5,20 @@
 #ifndef NKN_LOCAL_H
 #define NKN_LOCAL_H
 
+#include <sodium.h>
+#include <boost/atomic.hpp>
+
 #include "smux-cpp/local.h"
-#include "pb/tuna.pb.h"
 #include "smux-cpp/encrypt.h"
 #include "smux-cpp/smux.h"
 #include "smux-cpp/client_session.h"
-#include "nkn_client_session.h"
-#include <sodium.h>
 #include "include/crypto/ed25519.h"
 #include "include/rpc.h"
 #include "include/wallet.h"
-#include "nkn.h"
 
-#include <boost/atomic.hpp>
+#include "nkn.h"
+#include "nkn_client_session.h"
+#include "pb/tuna.pb.h"
 
 
 using boost::asio::ip::tcp;
@@ -39,6 +40,8 @@ public:
 
     void payment_checker(uint32_t sid);
 
+    void set_service_metadata(uint32_t sid);
+
 //    uint32_t read_var_bytes(std::shared_ptr<tcp::socket> s, char *buf);
 //
 //    static void write_var_bytes(std::shared_ptr<tcp::socket> s, char *buf, std::size_t len);
@@ -57,6 +60,7 @@ private:
     char plain_[65536]{};
     char nanopay_buf_[256]{};
     char stream_metadata_buf_[128];
+    char service_metadata_buf_[4096];
 
 
     shared_ptr<Wallet::Wallet> wallet_;

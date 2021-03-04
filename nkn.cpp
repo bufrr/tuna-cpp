@@ -1,5 +1,8 @@
+//
+// Created by yc chow on 2021/2/7.
+//
+
 #include "nkn.h"
-#include "base64.hpp"
 
 shared_ptr<node_info> get_node_info_from_pubsub(const string &topic, const string &pk) {
     json::value params = json::value::object();

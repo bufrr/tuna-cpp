@@ -8,6 +8,8 @@
 #include "include/wallet.h"
 #include "pb/tuna.pb.h"
 #include "smux-cpp/encoding.h"
+#include "base64.hpp"
+
 
 using boost::asio::ip::tcp;
 using namespace NKN;

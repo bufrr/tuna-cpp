@@ -10,7 +10,7 @@
 
 class tuna_exit : virtual public tuna {
 public:
-    tuna_exit(boost::asio::io_context &io_context, tcp::endpoint to, const string &seed,
+    tuna_exit(boost::asio::io_context &io_context, const string &seed, const string ip, const int port,
               shared_ptr<node_info> ni, bool *stop);
 
     ~tuna_exit();
@@ -22,7 +22,7 @@ private:
 
 private:
     tcp::socket socket_;
-    tcp::endpoint to_;
+    tcp::endpoint remote_ep_;
 };
 
 
