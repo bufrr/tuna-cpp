@@ -18,6 +18,7 @@
 
 #include "nkn.h"
 #include "nkn_client_session.h"
+#include "server_session.h"
 #include "pb/tuna.pb.h"
 
 
@@ -40,11 +41,17 @@ public:
 
     void payment_checker(uint32_t sid);
 
-    void set_service_metadata(uint32_t sid);
+    void send_service_metadata(uint32_t sid);
+
+    void receive_service_metadata(uint32_t sid);
+
+    void connect_service(string ip, int port);
 
 //    uint32_t read_var_bytes(std::shared_ptr<tcp::socket> s, char *buf);
 //
 //    static void write_var_bytes(std::shared_ptr<tcp::socket> s, char *buf, std::size_t len);
+
+    bool connected;
 
 private:
     void do_sess_receive() override;

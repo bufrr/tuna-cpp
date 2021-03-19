@@ -15,7 +15,11 @@ public:
 
     ~tuna_exit();
 
-    void run();
+    void run() override;
+
+    void connect_local_service();
+
+    void do_connect_loop();
 
 private:
     //void connect_handler(const boost::system::error_code &err);

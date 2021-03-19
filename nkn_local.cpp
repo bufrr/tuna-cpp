@@ -12,7 +12,7 @@
 nkn_Local::nkn_Local(boost::asio::io_context &io_context, shared_ptr<Wallet::Wallet> w, shared_ptr<node_info> ni,
                      bool *stop)
         : Local(io_context), paid_bytes_(0), total_in_bytes_(0),
-          total_out_bytes_(0), ni_(ni), wallet_(std::move(w)), stop_(stop) {
+          total_out_bytes_(0), ni_(ni), wallet_(std::move(w)), stop_(stop), connected(false) {
     cerr << "ip: " << ni_->ip << " " << "price: " << ni_->price << endl;
     while (true) {
         auto ec = make_shared<boost::system::error_code>();
@@ -83,7 +83,6 @@ void nkn_Local::run() {
     };
 
     in2 = [this, self](char *buf, std::size_t len, Handler handler) mutable {
-        //cout << len << "len in" << endl;
         unsigned char nonce[crypto_box_NONCEBYTES];
         memcpy(nonce, buf, crypto_box_NONCEBYTES);
         auto success = crypto_box_open_easy_afternm(reinterpret_cast<unsigned char *>(plain_),
@@ -108,11 +107,11 @@ void nkn_Local::run() {
     });
 
     smux_->run();
-    //std::this_thread::sleep_for(std::chrono::milliseconds(1000)); // sleep for 1 second
-    send_payment(99999);
-    //set_service_metadata(9999);
 
     do_sess_receive();
+//    //std::this_thread::sleep_for(std::chrono::milliseconds(1000)); // sleep for 1 second
+//    send_payment(99999);
+//    send_service_metadata(9999);
 }
 
 void nkn_Local::async_connect(std::function<void(std::shared_ptr<smux_sess>)> handler) {
@@ -141,7 +140,6 @@ void nkn_Local::do_sess_receive() {
                                                                     do_sess_receive();
                                                                 });
                                                         });
-
                             });
 }
 
@@ -295,13 +293,15 @@ void nkn_Local::payment_checker(uint32_t sid) {
             });
 }
 
-void nkn_Local::set_service_metadata(uint32_t sid) {
+void nkn_Local::send_service_metadata(uint32_t sid) {
     auto self = shared_from_this();
-    cout << "set_service_metadata" << endl;
+    cout << "send_service_metadata" << endl;
 
     smux_->async_write_frame(frame{VERSION, cmdSyn, 0, sid}, nullptr);
 
     auto md = std::make_shared<pb::ServiceMetadata>();
+    md->add_service_tcp(1);
+    md->add_service_udp(1);
     md->set_ip("");
     md->set_service_id(ni_->service_id);
     md->set_tcp_port(0);
@@ -313,26 +313,63 @@ void nkn_Local::set_service_metadata(uint32_t sid) {
 
 
     size_t md_buf_len = md->ByteSizeLong();
-    //char service_md_buf[md_buf_len];
-    md->SerializeToArray(service_metadata_buf_, md_buf_len);
+    char service_md_buf[md_buf_len];
+    md->SerializeToArray(service_md_buf, md_buf_len);
     std::vector<byte> byte_vec;
-    byte_vec.assign(service_metadata_buf_, service_metadata_buf_ + sizeof(service_metadata_buf_));
+    byte_vec.assign(service_md_buf, service_md_buf + md_buf_len);
     auto encoded = base64::encode(byte_vec);
-    //std::string raw_md(begin(decoded), end(decoded));
+
     auto md_bytes = encoded.c_str();
-
+    auto encoded_len = encoded.size();
+    char len_buf[4];
+    encode32u(reinterpret_cast<byte *>(len_buf), encoded_len);
+    memcpy(service_metadata_buf_, len_buf, 4);
+    memcpy(service_metadata_buf_ + 4, md_bytes, encoded_len);
     auto sess = std::make_shared<smux_sess>(context_, sid, VERSION, std::weak_ptr<smux>(smux_));
+    smux_->sessions_.emplace(std::make_pair(sid, std::weak_ptr<smux_sess>(sess)));
 
-    sess->async_write(const_cast<char *>(md_bytes), md_buf_len, [this, self, sess](std::error_code, std::size_t) {
-        char *received_metadata = static_cast<char *>(malloc(1024));
-        sess->async_read_some(received_metadata, 1024, [this, self, sess](std::error_code, std::size_t) {
-            auto service_md = std::make_shared<pb::ServiceMetadata>();
-            service_md->ParseFromArray(service_metadata_buf_, 1024);
-            cout << "port:" << service_md->tcp_port() << endl;
-        });
-    });
+    sess->async_write(const_cast<char *>(service_metadata_buf_), encoded_len + 4,
+                      [this, self, sess](std::error_code, std::size_t) {
+                      }
+    );
 }
 
+void nkn_Local::receive_service_metadata(uint32_t sid) {
+    auto self = shared_from_this();
+    auto it = smux_->sessions_.find(sid);
+    if (it != smux_->sessions_.end()) {
+        auto s = it->second.lock();
+        if (s) {
+            s->async_read_some(service_metadata_buf_, 4,
+                               [this, self, s](std::error_code, std::size_t len) {
+                                   cout << "buf len:" << len << endl;
+                                   uint32_t buf_len;
+                                   decode32u(reinterpret_cast<byte *>(service_metadata_buf_), &buf_len);
+                                   s->async_read_some(service_metadata_buf_, buf_len,
+                                                      [this, self, s](std::error_code,
+                                                                      std::size_t len) {
+                                                          cout << "service buf len:" << len << endl;
+                                                          auto md_str = string(service_metadata_buf_, len);
+                                                          auto decoded = base64::decode(md_str);
+                                                          std::string raw_md(begin(decoded), end(decoded));
+                                                          auto service_md = std::make_shared<pb::ServiceMetadata>();
+                                                          service_md->ParseFromString(raw_md);
+                                                          cout << "port:" << service_md->service_tcp().Get(0) << endl;
+                                                      });
+                               });
+
+        }
+    }
+}
+
+void nkn_Local::connect_service(string ip, int port) {
+    auto self = shared_from_this();
+    smux_->set_accept_handler([this, self](std::shared_ptr<smux_sess> sess) {
+        auto local_endpoint = tcp::endpoint(boost::asio::ip::address::from_string("127.0.0.1"), 2015);
+        //auto sock = make_shared<tcp::socket>(context_);
+        std::make_shared<server_session>(context_, sess, local_endpoint)->run();
+    });
+}
 
 
 

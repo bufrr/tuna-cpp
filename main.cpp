@@ -38,8 +38,8 @@ int main() {
     string pk = "7c2ebcc959fd076505377eb2105472612db9dae467f6f2c538df6c6ba6c189ad";
     string metadata = "\"Cg02NC42NC4yNDUuMTQ5ELrqARi76gEgAToEMC4wMUIkTktORmZ4TG9UajZwZmIxMVdQcEN3UEE5djhIQlVxSmY4anJC\"";
     auto stop = new bool(false);
-    start_entry("127.0.0.1", 2015, seed, pk, metadata, stop);
-    //start_exit("127.0.0.1", 2015, seed, pk, metadata, stop);
+    //start_entry("127.0.0.1", 2015, seed, pk, metadata, stop);
+    start_exit("127.0.0.1", 2015, seed, pk, metadata, stop);
     // cout << ToString(0.00000108) << endl;
     //auto ni = get_node_info_from_pubsub("tuna_v1.outline", "7c2ebcc959fd076505377eb2105472612db9dae467f6f2c538df6c6ba6c189ad");
     return 0;

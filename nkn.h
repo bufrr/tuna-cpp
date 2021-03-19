@@ -23,6 +23,12 @@ struct node_info {
     std::string pubkey;
 };
 
+struct service {
+    uint service_id;
+    uint port;
+    std::string service_name;
+};
+
 shared_ptr<node_info> get_node_info_from_pubsub(const string &topic, const string &pk);
 
 shared_ptr<node_info> get_node_info_from_metadata(const string &metadata, const string &pk);

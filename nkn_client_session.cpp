@@ -65,20 +65,12 @@ void nkn_client_session::async_write_service_metadata(int port_id, int service_i
 }
 
 void nkn_client_session::run_exit_reverse(uint service_id) {
-    auto self = shared_from_this();
-    async_write_stream_metadata(0, service_id, false);
-    auto target_endpoint = tcp::endpoint(boost::asio::ip::address::from_string("127.0.0.1"), 2015);
-    sock_->async_connect(target_endpoint, [this, self](std::error_code ec) {
-        if (ec) {
-            std::cout << "run_exit_reverse: " << ec.message() << std::endl;
-            return;
-        }
-        do_pipe1();
-        do_pipe2();
-    });
+    //async_write_stream_metadata(0, service_id, false);
+    std::cout << "exit reverse" << std::endl;
+    do_pipe1();
+    do_pipe2();
 }
 
 void nkn_client_session::call_this_on_destroy() {
-    std::cout << "client session destroyed" << std::endl;
     client_session::call_this_on_destroy();
 }

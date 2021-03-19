@@ -37,7 +37,7 @@ set(SOURCES
         nkn-sdk-cpp/wallet/wallet.cpp
         nkn-sdk-cpp/wallet/nanopay.cpp
         nkn-sdk-cpp/transaction/txBuilder.cpp
-        nkn-sdk-cpp/transaction/transaction.cpp tuna_exit.cpp tuna.cpp)
+        nkn-sdk-cpp/transaction/transaction.cpp tuna_exit.cpp tuna.cpp server_session.h server_session.cpp)
 
 # Headers
 set(HEADERS
