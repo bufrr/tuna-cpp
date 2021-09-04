@@ -33,6 +33,20 @@
 
 venv
 .idea/
-cmake-build-debug/
 build/
 .DS_Store
+
+**/cmake-build-debug
+**/CMakeCache.txt
+**/cmake_install.cmake
+**/install_manifest.txt
+**/CMakeFiles/
+**/CTestTestfile.cmake
+**/Makefile
+**/*.cbp
+**/CMakeScripts
+**/compile_commands.json
+
+
+entry
+exit

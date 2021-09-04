@@ -4,3 +4,9 @@
 [submodule "nkn-sdk-cpp"]
 	path = nkn-sdk-cpp
 	url = git@github.com:nknorg/nkn-sdk-cpp.git
+[submodule "gflags"]
+	path = gflags
+	url = https://github.com/gflags/gflags.git
+[submodule "rapidjson"]
+	path = rapidjson
+	url = https://github.com/Tencent/rapidjson.git

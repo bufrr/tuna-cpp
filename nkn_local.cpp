@@ -21,6 +21,7 @@ nkn_Local::nkn_Local(boost::asio::io_context &io_context, shared_ptr<Wallet::Wal
         s.connect(*ep, *ec);
         if (!(*ec)) {
             sock_ = std::make_shared<boost::asio::ip::tcp::socket>(std::move(s));
+            cout << "connect ok" << endl;
             break;
         }
         cerr << ec->message() << endl;
@@ -28,16 +29,13 @@ nkn_Local::nkn_Local(boost::asio::io_context &io_context, shared_ptr<Wallet::Wal
     }
 
     //generate random keypair
-    //unsigned char seed[crypto_sign_ed25519_SEEDBYTES];
-    //randombytes_buf(seed, sizeof seed);
-    //wallet_->account->PrivateKey.toHexString()
-    crypto_sign_ed25519_seed_keypair(pk_, sk_,
-                                     reinterpret_cast<const unsigned char *>(wallet_->account->PrivateKey.toHexString().c_str()));
+    unsigned char random_seed[crypto_sign_ed25519_SEEDBYTES];
+    randombytes_buf(random_seed, sizeof random_seed);
+    crypto_sign_ed25519_seed_keypair(msg_enc_pk_, msg_enc_sk_, random_seed);
 
     auto pk = Uint256(0);
     pk.FromHexString(ni->pubkey);
     memcpy(remote_pk_, pk.toBytes().c_str(), sizeof remote_pk_);
-    //remote_beneficiary_ = ED25519::PubKey(pk).toProgramHash().toAddress();
     remote_beneficiary_ = ni_->beneficiary_addr;
 
     //prepare_wallet();
@@ -49,7 +47,7 @@ void nkn_Local::run() {
     auto self = shared_from_this();
     pb::ConnectionMetadata md;
     md.set_encryption_algo(pb::ENCRYPTION_XSALSA20_POLY1305);
-    md.set_public_key(pk_, crypto_sign_ed25519_PUBLICKEYBYTES);
+    md.set_public_key(msg_enc_pk_, crypto_sign_ed25519_PUBLICKEYBYTES);
     negotiate_conn_metadata(sock_, md);
 
     out2 = [this, self](char *buf, std::size_t len, Handler handler) mutable {
@@ -60,7 +58,7 @@ void nkn_Local::run() {
         total_out_bytes_ += len;
         unsigned char enc_msg[len + crypto_box_MACBYTES];
         unsigned char nonce[crypto_box_NONCEBYTES];
-        randombytes_buf(nonce, crypto_box_NONCEBYTES); // need to update each sending
+        randombytes_buf(nonce, crypto_box_NONCEBYTES); // auto generated on each connection
 
         crypto_box_easy_afternm(enc_msg, reinterpret_cast<const unsigned char *>(buf), len, nonce, enc_key_);
 
@@ -75,7 +73,7 @@ void nkn_Local::run() {
                                  boost::asio::buffer(send_msg_, len + 4 + crypto_box_NONCEBYTES + crypto_box_MACBYTES),
                                  [this, self, handler](std::error_code ec, std::size_t len) {
                                      if (ec) {
-                                         cout << "async_write err: " << ec.message() << endl;
+                                         cerr << "async_write err: " << ec.message() << endl;
                                          destroy();
                                      }
                                      handler(ec, len);
@@ -95,8 +93,6 @@ void nkn_Local::run() {
 
         smux_->async_input(plain_, len - crypto_box_NONCEBYTES - crypto_box_MACBYTES,
                            [this, self, handler](std::error_code ec, std::size_t len) {
-//                               //unpaid_bytes_.fetch_add(len);
-//                               cout << "input: " << len << endl;
                                handler(ec, len);
                            });
     };
@@ -107,11 +103,12 @@ void nkn_Local::run() {
     });
 
     smux_->run();
+    payment_stream_id_ = smux_->get_next_stream_id();
+    service_stream_id_ = smux_->get_next_stream_id();
 
     do_sess_receive();
-//    //std::this_thread::sleep_for(std::chrono::milliseconds(1000)); // sleep for 1 second
-//    send_payment(99999);
-//    send_service_metadata(9999);
+    //send_payment();
+    //std::this_thread::sleep_for(std::chrono::milliseconds(1000)); // sleep for 1 second
 }
 
 void nkn_Local::async_connect(std::function<void(std::shared_ptr<smux_sess>)> handler) {
@@ -124,6 +121,7 @@ void nkn_Local::do_sess_receive() {
                             [this, self](std::error_code ec, std::size_t sz) {
                                 if (ec) {
                                     TRACE
+                                    //destroy();
                                     return;
                                 }
                                 uint32_t buf_len;
@@ -135,6 +133,7 @@ void nkn_Local::do_sess_receive() {
                                                                 [this, self](std::error_code ec, std::size_t) {
                                                                     if (ec) {
                                                                         TRACE
+                                                                        //destroy();
                                                                         return;
                                                                     }
                                                                     do_sess_receive();
@@ -158,7 +157,7 @@ void nkn_Local::negotiate_conn_metadata(shared_ptr<tcp::socket> sock, pb::Connec
     write_var_bytes(sock, conn_metadata_, conn_md_len);
 
     crypto_sign_ed25519_pk_to_curve25519(curve_pk_, remote_pk_);
-    crypto_sign_ed25519_sk_to_curve25519(curve_sk_, sk_);
+    crypto_sign_ed25519_sk_to_curve25519(curve_sk_, msg_enc_sk_);
 
     crypto_box_beforenm(shared_, curve_pk_, curve_sk_);
     std::string s1(reinterpret_cast<const char *>(nonce_), 32);
@@ -187,21 +186,19 @@ void nkn_Local::negotiate_conn_metadata(shared_ptr<tcp::socket> sock, pb::Connec
 ////    cout << wallet_.Seed().toHexString() << endl;
 ////    cout << wallet_.PrivKey().toBytes() << "     " << sizeof wallet_.PrivKey().toBytes().c_str() << endl;
 ////    cout << wallet_.PubKey().toProgramHash().toAddress() << endl;
-//    memcpy(pk_, wallet_->PubKey().toBytes().c_str(), sizeof pk_);
-//    memcpy(sk_, wallet_->PrivKey().toBytes().c_str(), sizeof sk_);
+//    memcpy(msg_enc_pk_, wallet_->PubKey().toBytes().c_str(), sizeof msg_enc_pk_);
+//    memcpy(msg_enc_sk_, wallet_->PrivKey().toBytes().c_str(), sizeof msg_enc_sk_);
 ////    cout << wallet_.PrivKey().toBytes().size() << endl;
 //
 //}
 
-void nkn_Local::send_payment(uint32_t sid) {
+void nkn_Local::send_payment() {
     auto self = shared_from_this();
-    //char seed[] = "8f42614443c8f0dd56d110def7efd64cd7954393c16b5af39da88ac4805e2cd7";
-
     auto rpc = make_shared<JsonRPC>(GetRandomSeedRPCServerAddr());  // new RPC client
 
     nanopay_ = Wallet::NanoPay::NewNanoPay(rpc, wallet_, remote_beneficiary_, 0, 2000);    // New Wallet::NanoPay
 
-    smux_->async_write_frame(frame{VERSION, cmdSyn, 0, sid}, nullptr);
+    smux_->async_write_frame(frame{VERSION, cmdSyn, 0, payment_stream_id_}, nullptr);
 
     auto md = std::make_shared<pb::StreamMetadata>();
     md->set_port_id(0);
@@ -217,19 +214,18 @@ void nkn_Local::send_payment(uint32_t sid) {
     memcpy(buf_with_len, len_buf, 4);
     memcpy(buf_with_len + 4, stream_md_buf, md_buf_len);
 
-    auto f = frame{VERSION, cmdPsh, static_cast<uint16_t>(md_buf_len + 4), sid};
+    auto f = frame{VERSION, cmdPsh, static_cast<uint16_t>(md_buf_len + 4), payment_stream_id_};
 
     f.marshal(stream_metadata_buf_);
     memcpy(stream_metadata_buf_ + headerSize, buf_with_len, md_buf_len + 4);
-    smux_->async_write(stream_metadata_buf_, headerSize + md_buf_len + 4, [this, self, sid]
+    smux_->async_write(stream_metadata_buf_, headerSize + md_buf_len + 4, [this, self]
             (std::error_code ec, std::size_t) {
-        payment_checker(sid);
+        payment_checker(payment_stream_id_);
     });
 }
 
 void nkn_Local::payment_checker(uint32_t sid) {
     std::weak_ptr<Local> weak_local = shared_from_this();
-    //cout << "payment checker" << endl;
     if (!nanopay_sender_timer_) {
         nanopay_sender_timer_ = std::make_shared<boost::asio::high_resolution_timer>(
                 context_, std::chrono::milliseconds(1000));
@@ -250,14 +246,11 @@ void nkn_Local::payment_checker(uint32_t sid) {
                 auto now = boost::posix_time::second_clock::local_time();
                 auto duration = now - last_payment_;
                 //auto cost = unpaid_bytes
-                if (unpaid_bytes >= 32 * 1024 * 1024 || (duration.total_seconds() > 60 && unpaid_bytes > 0)) {
+                if (unpaid_bytes >= MAX_OVERDUE_BYTES ||
+                    (duration.total_seconds() > MAX_PAYMENT_DURATION && unpaid_bytes > 0)) {
                     auto price = stof(ni_->price);
-//                    if (price <= 0) {
-//                        return;
-//                    }
-                    string cost = ToString(price * unpaid_bytes / (1024.0 * 1024));
+                    string cost = ToString(price * unpaid_bytes / (MiB));
                     cout << "cost:" << cost << endl;
-                    cout << "duration:" << duration.total_seconds() << endl;
                     std::error_code ec;
                     shared_ptr<pb::Transaction> npTxn;
                     for (int i = 0; i < 3; i++) {
@@ -273,7 +266,6 @@ void nkn_Local::payment_checker(uint32_t sid) {
                     char payload[tx_payload_len];
                     npTxn->SerializeToArray(payload, tx_payload_len);
                     auto payload_str = npTxn->SerializeAsString();
-                    //cout << "str:" << HEX::EncodeToString(payload_str) << endl;
                     char len_buf[4];
                     encode32u(reinterpret_cast<byte *>(len_buf), tx_payload_len);
                     char nanopay_with_len[tx_payload_len + 4];
@@ -293,11 +285,9 @@ void nkn_Local::payment_checker(uint32_t sid) {
             });
 }
 
-void nkn_Local::send_service_metadata(uint32_t sid) {
+void nkn_Local::send_service_metadata() {
     auto self = shared_from_this();
-    cout << "send_service_metadata" << endl;
-
-    smux_->async_write_frame(frame{VERSION, cmdSyn, 0, sid}, nullptr);
+    smux_->async_write_frame(frame{VERSION, cmdSyn, 0, service_stream_id_}, nullptr);
 
     auto md = std::make_shared<pb::ServiceMetadata>();
     md->add_service_tcp(1);
@@ -325,36 +315,35 @@ void nkn_Local::send_service_metadata(uint32_t sid) {
     encode32u(reinterpret_cast<byte *>(len_buf), encoded_len);
     memcpy(service_metadata_buf_, len_buf, 4);
     memcpy(service_metadata_buf_ + 4, md_bytes, encoded_len);
-    auto sess = std::make_shared<smux_sess>(context_, sid, VERSION, std::weak_ptr<smux>(smux_));
-    smux_->sessions_.emplace(std::make_pair(sid, std::weak_ptr<smux_sess>(sess)));
+    auto sess = std::make_shared<smux_sess>(context_, service_stream_id_, VERSION, std::weak_ptr<smux>(smux_));
+    smux_->sessions_.emplace(std::make_pair(service_stream_id_, std::weak_ptr<smux_sess>(sess)));
 
     sess->async_write(const_cast<char *>(service_metadata_buf_), encoded_len + 4,
                       [this, self, sess](std::error_code, std::size_t) {
+                          //send_payment();
                       }
     );
 }
 
-void nkn_Local::receive_service_metadata(uint32_t sid) {
+void nkn_Local::receive_service_metadata() {
     auto self = shared_from_this();
-    auto it = smux_->sessions_.find(sid);
+    auto it = smux_->sessions_.find(service_stream_id_);
     if (it != smux_->sessions_.end()) {
         auto s = it->second.lock();
         if (s) {
             s->async_read_some(service_metadata_buf_, 4,
                                [this, self, s](std::error_code, std::size_t len) {
-                                   cout << "buf len:" << len << endl;
                                    uint32_t buf_len;
                                    decode32u(reinterpret_cast<byte *>(service_metadata_buf_), &buf_len);
                                    s->async_read_some(service_metadata_buf_, buf_len,
                                                       [this, self, s](std::error_code,
                                                                       std::size_t len) {
-                                                          cout << "service buf len:" << len << endl;
                                                           auto md_str = string(service_metadata_buf_, len);
                                                           auto decoded = base64::decode(md_str);
                                                           std::string raw_md(begin(decoded), end(decoded));
                                                           auto service_md = std::make_shared<pb::ServiceMetadata>();
                                                           service_md->ParseFromString(raw_md);
-                                                          cout << "port:" << service_md->service_tcp().Get(0) << endl;
+                                                          cerr << "port:" << service_md->service_tcp().Get(0) << endl;
                                                       });
                                });
 
@@ -362,10 +351,10 @@ void nkn_Local::receive_service_metadata(uint32_t sid) {
     }
 }
 
-void nkn_Local::connect_service(string ip, int port) {
+void nkn_Local::connect_local_service(string ip, int port) {
     auto self = shared_from_this();
-    smux_->set_accept_handler([this, self](std::shared_ptr<smux_sess> sess) {
-        auto local_endpoint = tcp::endpoint(boost::asio::ip::address::from_string("127.0.0.1"), 2015);
+    smux_->set_accept_handler([this, self, ip, port](std::shared_ptr<smux_sess> sess) {
+        auto local_endpoint = tcp::endpoint(boost::asio::ip::address::from_string(ip), port);
         //auto sock = make_shared<tcp::socket>(context_);
         std::make_shared<server_session>(context_, sess, local_endpoint)->run();
     });

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.17)
-project(tuna C CXX)
+project(tuna-cpp C CXX)
 enable_testing()
 set(CMAKE_CXX_STANDARD 11)
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -g -fno-omit-frame-pointer")
@@ -14,12 +14,11 @@ else ()
     message(STATUS "kqueue found!")
 endif ()
 set(OPENSSL_ROOT_DIR /usr/local/opt/openssl /usr/local/Cellar/openssl@1.1/1.1.1h/)
-find_package(cpprestsdk REQUIRED)
+#find_package(cpprestsdk REQUIRED)
 #find_package(OpenSSL::SSL IMPORTED)
 
 
 set(SOURCES
-        main.cpp
         entry.cpp
         nkn.cpp nkn_client_session.cpp nkn_local.cpp
         pb/tuna.pb.cc
@@ -37,7 +36,8 @@ set(SOURCES
         nkn-sdk-cpp/wallet/wallet.cpp
         nkn-sdk-cpp/wallet/nanopay.cpp
         nkn-sdk-cpp/transaction/txBuilder.cpp
-        nkn-sdk-cpp/transaction/transaction.cpp tuna_exit.cpp tuna.cpp server_session.h server_session.cpp)
+        nkn-sdk-cpp/transaction/transaction.cpp tuna_exit.cpp tuna.cpp server_session.h server_session.cpp config.cpp
+        entry_main.cpp)
 
 # Headers
 set(HEADERS
@@ -59,32 +59,51 @@ set(HEADERS
         smux-cpp/encrypt.h
         pb/tuna.pb.h
         pb/transaction.pb.h
-        nkn-sdk-cpp/json/NKNCodec.h)
+        nkn-sdk-cpp/json/NKNCodec.h
+        entry_main.h)
 
-add_executable(entry main.cpp ${SOURCES})
+message(STATUS "Building static version...")
+
+#add_executable(exit exit_main.cpp ${SOURCES})
+#target_link_libraries(exit /usr/local/Cellar/cpprestsdk/2.10.16/lib/libcpprest.dylib)
+#target_link_libraries(exit ${CMAKE_SOURCE_DIR}/nkn-sdk-cpp/cmake-build-debug/nnn.a) #/usr/local/Cellar/openssl@1.1/1.1.1h/lib/libcrypto.a /usr/local/Cellar/gmp/6.2.1/lib/libgmp.a /usr/local/Cellar/gmp/6.2.1/lib/libgmpxx.a /usr/local/Cellar/cpprestsdk/2.10.16/lib/libcpprest.dylib /usr/local/Cellar/protobuf/3.14.0/lib/libprotobuf.a /usr/local/opt/libsodium/lib/libsodium.a)
+#target_link_libraries(exit gflags)
+
+
+#add_executable(entry entry_main.cpp ${SOURCES})
+#target_link_libraries(entry /usr/local/Cellar/cpprestsdk/2.10.16/lib/libcpprest.dylib)
+#target_link_libraries(entry ${CMAKE_SOURCE_DIR}/nkn-sdk-cpp/cmake-build-debug/newnnn.a) #/usr/local/Cellar/openssl@1.1/1.1.1h/lib/libcrypto.a /usr/local/Cellar/gmp/6.2.1/lib/libgmp.a /usr/local/Cellar/gmp/6.2.1/lib/libgmpxx.a /usr/local/Cellar/cpprestsdk/2.10.16/lib/libcpprest.dylib /usr/local/Cellar/protobuf/3.14.0/lib/libprotobuf.a /usr/local/opt/libsodium/lib/libsodium.a)
+#target_link_libraries(entry gflags)
 
 # Library
 #if (BUILD_SHARED)
 #add_library(entry STATIC ${SOURCES})
-message(STATUS "Building static version...")
 #else ()
 #    add_library(entry STATIC ${SOURCES} ${HEADERS} /usr/local/opt/protobuf/lib/libprotobuf.a /usr/local/opt/libsodium/lib/libsodium.a /usr/local/Cellar/gmp/6.2.0/lib/libgmp.a /usr/local/Cellar/gmp/6.2.0/lib/libgmpxx.a /usr/local/Cellar/openssl@1.1/1.1.1h/lib/libcrypto.a /usr/local/Cellar/cpprestsdk/2.10.16/lib/libcpprest.dylib)
 #    message(STATUS "Building static version...")
 #endif ()
 
-include_directories(${entry_SOURCE_DIR})
+#include_directories(${tuna-cpp_SOURCE_DIR})
 include_directories(/usr/local/Cellar/boost/1.74.0/include/)
 #include_directories(/usr/local/include/)
 #link_directories(/usr/local/lib/)
 include_directories(/usr/local/opt/protobuf/include/)
-include_directories(./pb)
-include_directories(./nkn-sdk-cpp)
-include_directories(../rapidjson/include)
 include_directories(/usr/local/Cellar/openssl@1.1/1.1.1h/include)
 include_directories(/usr/local/Cellar/cpprestsdk/2.10.16/include)
 include_directories(/usr/local/Cellar/libsodium/1.0.18_1/include)
 include_directories(/usr/local/Cellar/gmp/6.2.1/include)
 
+
+include_directories(${CMAKE_SOURCE_DIR}/pb)
+include_directories("${CMAKE_SOURCE_DIR}/gflags/include")
+include_directories("${CMAKE_SOURCE_DIR}/rapidjson/include")
+include_directories("${CMAKE_SOURCE_DIR}/smux")
+include_directories(${CMAKE_SOURCE_DIR}/nkn-sdk-cpp)
+
+
+
+add_subdirectory("gflags")
+add_subdirectory("smux-cpp")
 
 #link_directories(/usr/local/Cellar/boost/1.74.0/lib/)
 #link_directories(/usr/local/opt/protobuf/lib/)
@@ -112,22 +131,25 @@ include_directories(/usr/local/Cellar/gmp/6.2.1/include)
 #        )
 
 # arm64
-#target_link_libraries(entry
-#        /Users/chow/test/c8d172709018780eb069/protobuf/platform/arm64/lib/libprotobuf.a
-#        /Users/chow/test/libsodium_arm64.a
-#        /Users/chow/test/casablanca/Build_iOS/OpenSSL-for-iPhone/bin/iPhoneOS14.3-arm64.sdk/lib/libcrypto.a
-#        /Users/chow/test/casablanca/Build_iOS/OpenSSL-for-iPhone/bin/iPhoneOS14.3-arm64.sdk/lib/libssl.a
-#        /Users/chow/test/casablanca/Build_iOS/build.Release.ios/lib/libcpprest.a
-#        /Users/chow/test/casablanca/Build_iOS/Apple-Boost-BuildScript/build/boost/1.74.0/ios/release/build/arm64/libboost.a
-#        /Users/chow/gmp-6.2.1-20201222225403/ios/lib/libgmp.a
-#        )
+
+add_library(entry STATIC ${SOURCES})
+target_link_libraries(entry
+        /Users/chow/test/c8d172709018780eb069/protobuf/platform/arm64/lib/libprotobuf.a
+        /Users/chow/test/libsodium_arm64.a
+        /Users/chow/test/casablanca/Build_iOS/OpenSSL-for-iPhone/bin/iPhoneOS14.3-arm64.sdk/lib/libcrypto.a
+        /Users/chow/test/casablanca/Build_iOS/OpenSSL-for-iPhone/bin/iPhoneOS14.3-arm64.sdk/lib/libssl.a
+        /Users/chow/test/casablanca/Build_iOS/build.Release.ios/lib/libcpprest.a
+        /Users/chow/test/casablanca/Build_iOS/Apple-Boost-BuildScript/build/boost/1.74.0/ios/release/build/arm64/libboost.a
+        /Users/chow/gmp-6.2.1-20201222225403/ios/lib/libgmp.a
+        )
 # main
-target_link_libraries(entry /usr/local/Cellar/protobuf/3.14.0/lib/libprotobuf.a /usr/local/opt/libsodium/lib/libsodium.a /usr/local/Cellar/gmp/6.2.1/lib/libgmp.a /usr/local/Cellar/gmp/6.2.1/lib/libgmpxx.a /usr/local/Cellar/openssl@1.1/1.1.1h/lib/libcrypto.a /usr/local/Cellar/cpprestsdk/2.10.16/lib/libcpprest.dylib)
+#target_link_libraries(entry /usr/local/Cellar/cpprestsdk/2.10.16/lib/libcpprest.dylib)
+#target_link_libraries(entry ${CMAKE_SOURCE_DIR}/nkn-sdk-cpp/cmake-build-debug/nnn.a) #/usr/local/Cellar/openssl@1.1/1.1.1h/lib/libcrypto.a /usr/local/Cellar/gmp/6.2.1/lib/libgmp.a /usr/local/Cellar/gmp/6.2.1/lib/libgmpxx.a /usr/local/Cellar/cpprestsdk/2.10.16/lib/libcpprest.dylib /usr/local/Cellar/protobuf/3.14.0/lib/libprotobuf.a /usr/local/opt/libsodium/lib/libsodium.a)
+#target_link_libraries(entry gflags)
 
-
-if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
-    set(CMAKE_INSTALL_PREFIX ${entry_SOURCE_DIR}/ CACHE PATH "Install path" FORCE)
-endif (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+#if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+#    set(CMAKE_INSTALL_PREFIX ${entry_SOURCE_DIR}/ CACHE PATH "Install path" FORCE)
+#endif (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
 
 
 # Executable
@@ -141,8 +163,8 @@ endif (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
 
 
 # Installation
-install(TARGETS entry DESTINATION lib)
-install(FILES ${HEADERS} DESTINATION include)
+#install(TARGETS entry DESTINATION lib)
+#install(FILES ${HEADERS} DESTINATION include)
 #
 #set_target_properties(entry PROPERTIES
 #        MACOSX_FRAMEWORK_IDENTIFIER com.example.entry

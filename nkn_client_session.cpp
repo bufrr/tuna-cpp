@@ -32,6 +32,10 @@ void nkn_client_session::async_write_stream_metadata(int port_id, int service_id
     memcpy(stream_metadata_ + 4, buff, md_buf_len);
     sess_->async_write(stream_metadata_, md_buf_len + 4,
                        [this, self](std::error_code ec, std::size_t) {
+                           if (ec) {
+                               destroy();
+                               return;
+                           }
                            client_session::run();
                        });
 }
@@ -58,7 +62,6 @@ void nkn_client_session::async_write_service_metadata(int port_id, int service_i
                            free(buf_with_len);
                            sess_->async_read_some(buf2_, sizeof(buf2_),
                                                   [this, self](std::error_code ec, std::size_t len) {
-                                                      std::cout << "buf2_:" << buf2_ << std::endl;
                                                       //client_session::run();
                                                   });
                        });
@@ -66,7 +69,6 @@ void nkn_client_session::async_write_service_metadata(int port_id, int service_i
 
 void nkn_client_session::run_exit_reverse(uint service_id) {
     //async_write_stream_metadata(0, service_id, false);
-    std::cout << "exit reverse" << std::endl;
     do_pipe1();
     do_pipe2();
 }

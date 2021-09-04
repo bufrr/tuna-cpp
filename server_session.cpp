@@ -36,14 +36,12 @@ void server_session::do_pipe1() {
             boost::asio::buffer(buf1_, sizeof(buf1_)),
             [this, self](std::error_code ec, std::size_t len) {
                 if (ec) {
-                    std::cout << "pipe1:" << ec.message() << std::endl;
                     destroy();
                     return;
                 }
                 sess_->async_write(
                         buf1_, len, [this, self](std::error_code ec, std::size_t len) {
                             if (ec) {
-                                std::cout << "pipe11:" << ec.message() << std::endl;
                                 destroy();
                                 return;
                             }
@@ -59,14 +57,12 @@ void server_session::do_pipe2() {
             self](std::error_code ec,
                   std::size_t len) {
         if (ec) {
-            std::cout << "pipe2:" << ec.message() << std::endl;
             destroy();
             return;
         }
         boost::asio::async_write(sock_, boost::asio::buffer(buf2_, len),
                                  [this, self](std::error_code ec, std::size_t len) {
                                      if (ec) {
-                                         std::cout << "pipe22:" << ec.message() << std::endl;
                                          destroy();
                                          return;
                                      }

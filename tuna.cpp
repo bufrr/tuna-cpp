@@ -16,6 +16,7 @@ void tuna::async_choose_local(std::function<void(std::shared_ptr<nkn_Local>)> f)
     if ((!local) || local->is_destroyed()) {
         local = std::make_shared<nkn_Local>(context_, wallet_, ni_, stop_);
         local->run();
+        local->send_payment();
         locals_[i] = local;
         f(local);
         return;

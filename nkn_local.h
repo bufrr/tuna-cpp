@@ -20,7 +20,11 @@
 #include "nkn_client_session.h"
 #include "server_session.h"
 #include "pb/tuna.pb.h"
+#include "config.h"
 
+#define MiB 1024*1024
+#define MAX_OVERDUE_BYTES 32*MiB
+#define MAX_PAYMENT_DURATION 60
 
 using boost::asio::ip::tcp;
 using namespace NKN;
@@ -37,15 +41,15 @@ public:
 
     void negotiate_conn_metadata(std::shared_ptr<tcp::socket> sock, pb::ConnectionMetadata md);
 
-    void send_payment(uint32_t sid);
+    void send_payment();
 
     void payment_checker(uint32_t sid);
 
-    void send_service_metadata(uint32_t sid);
+    void send_service_metadata();
 
-    void receive_service_metadata(uint32_t sid);
+    void receive_service_metadata();
 
-    void connect_service(string ip, int port);
+    void connect_local_service(string ip, int port);
 
 //    uint32_t read_var_bytes(std::shared_ptr<tcp::socket> s, char *buf);
 //
@@ -76,12 +80,14 @@ private:
     shared_ptr<node_info> ni_;
     string remote_beneficiary_;
     bool *stop_;
+    uint16_t payment_stream_id_;
+    uint16_t service_stream_id_;
 
 private:
     unsigned char nonce_[32]{};
     unsigned char remote_pk_[crypto_sign_ed25519_PUBLICKEYBYTES]{};
-    unsigned char pk_[crypto_sign_ed25519_PUBLICKEYBYTES]{};
-    unsigned char sk_[crypto_sign_ed25519_SECRETKEYBYTES]{};
+    unsigned char msg_enc_pk_[crypto_sign_ed25519_PUBLICKEYBYTES]{};
+    unsigned char msg_enc_sk_[crypto_sign_ed25519_SECRETKEYBYTES]{};
     unsigned char curve_pk_[crypto_box_curve25519xchacha20poly1305_PUBLICKEYBYTES]{};
     unsigned char curve_sk_[crypto_box_curve25519xchacha20poly1305_SECRETKEYBYTES]{};
     unsigned char shared_[crypto_box_BEFORENMBYTES]{};

@@ -1,8 +1,10 @@
-#ifndef KCPTUN_CONFIG_H
-#define KCPTUN_CONFIG_H
+#ifndef TUNA_CONFIG_H
+#define TUNA_CONFIG_H
+
+#include <boost/program_options.hpp>
 
 #include "smux-cpp/utils.h"
-//
+
 //DECLARE_string(localaddr);
 //DECLARE_string(remoteaddr);
 //DECLARE_string(targetaddr);
@@ -30,8 +32,28 @@
 //DECLARE_bool(kvar);
 //DECLARE_bool(nocomp);
 //DECLARE_bool(acknodelay);
-//
-//void parse_command_lines(int argc, char **argv);
+
+//DECLARE_string(remoteaddr);
+//DECLARE_string(localaddr);
+//DECLARE_string(price);
+//DECLARE_string(beneficiary_addr);
+//DECLARE_string(pubkey);
+//DECLARE_string(seed);
+//DECLARE_uint32(serviceid);
+
+namespace po = boost::program_options;
+using namespace std;
+
+template<class T>
+ostream &operator<<(ostream &os, const vector<T> &v) {
+    copy(v.begin(), v.end(), ostream_iterator<T>(os, " "));
+    return os;
+}
+
+
+void parse_command_lines(int argc, char **argv);
+
+po::variables_map parse(int argc, char *argv[]);
 
 std::string get_host(const std::string &addr);
 

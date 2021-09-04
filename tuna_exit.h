@@ -10,14 +10,12 @@
 
 class tuna_exit : virtual public tuna {
 public:
-    tuna_exit(boost::asio::io_context &io_context, const string &seed, const string ip, const int port,
+    tuna_exit(boost::asio::io_context &io_context, const string &seed, const string local_ip, const int local_port,
               shared_ptr<node_info> ni, bool *stop);
 
     ~tuna_exit();
 
     void run() override;
-
-    void connect_local_service();
 
     void do_connect_loop();
 
@@ -26,7 +24,8 @@ private:
 
 private:
     tcp::socket socket_;
-    tcp::endpoint remote_ep_;
+    string local_ip_;
+    uint local_port_;
 };
 
 

@@ -36,9 +36,9 @@ shared_ptr<node_info> get_node_info_from_pubsub(const string &topic, const strin
     return ni;
 }
 
-shared_ptr<node_info> get_node_info_from_metadata(const string &metadata, const string &pk) {
+shared_ptr<node_info> get_node_info_from_metadata(const char* metadata) {
     rapidjson::Document doc;
-    doc.Parse(metadata.c_str());
+    doc.Parse(metadata);
     auto service_md = std::make_shared<pb::ServiceMetadata>();
     auto decoded = base64::decode(doc.GetString());
     std::string raw_md(begin(decoded), end(decoded));
@@ -49,11 +49,11 @@ shared_ptr<node_info> get_node_info_from_metadata(const string &metadata, const 
     auto port = service_md->tcp_port();
     auto beneficiary_addr = service_md->beneficiary_addr();
     auto service_id = service_md->service_id();
-    if (beneficiary_addr.empty()) {
-        beneficiary_addr = NKN::ED25519::PubKey(pk).toProgramHash().toAddress();
-    }
+//    if (beneficiary_addr.empty()) {
+//        beneficiary_addr = NKN::ED25519::PubKey(pk).toProgramHash().toAddress();
+//    }
 
-    auto ni = make_shared<node_info>(node_info{ip, port, service_id, price, beneficiary_addr, pk});
+    auto ni = make_shared<node_info>(node_info{ip, port, service_id, price, beneficiary_addr});
     return ni;
 }
 

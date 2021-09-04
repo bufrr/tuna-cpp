@@ -21,6 +21,7 @@ void entry::run() {
     for (int i = 0; i < conn_num; i++) {
         auto l = std::make_shared<nkn_Local>(context_, wallet_, ni_, stop_);
         l->run();
+        l->send_payment();
         locals_.emplace_back(l);
     }
     acceptor_.set_option(tcp::acceptor::reuse_address(true));
