@@ -42,6 +42,10 @@ nkn_Local::nkn_Local(boost::asio::io_context &io_context, shared_ptr<Wallet::Wal
     last_payment_ = boost::posix_time::second_clock::local_time();
 }
 
+nkn_Local::~nkn_Local() {
+    cerr << "nkn local destroy" << endl;
+}
+
 void nkn_Local::run() {
     TRACE
     auto self = shared_from_this();
@@ -51,7 +55,8 @@ void nkn_Local::run() {
     negotiate_conn_metadata(sock_, md);
 
     out2 = [this, self](char *buf, std::size_t len, Handler handler) mutable {
-        if (*stop_) {
+        TRACE
+        if (*stop_ || smux_->is_destroyed()) {
             TRACE
             destroy();
         }
@@ -68,19 +73,25 @@ void nkn_Local::run() {
         memcpy(send_msg_, len_buf, 4);
         memcpy(&send_msg_[4], reinterpret_cast<const char *>(nonce), crypto_box_NONCEBYTES);
         memcpy(&send_msg_[4 + crypto_box_NONCEBYTES], reinterpret_cast<char *>(enc_msg), len + crypto_box_MACBYTES);
-
+        TRACE
         boost::asio::async_write(*sock_,
                                  boost::asio::buffer(send_msg_, len + 4 + crypto_box_NONCEBYTES + crypto_box_MACBYTES),
                                  [this, self, handler](std::error_code ec, std::size_t len) {
                                      if (ec) {
                                          cerr << "async_write err: " << ec.message() << endl;
-                                         destroy();
+                                         //destroy();
                                      }
+                                     TRACE
                                      handler(ec, len);
                                  });
     };
 
     in2 = [this, self](char *buf, std::size_t len, Handler handler) mutable {
+        TRACE
+        if (smux_->is_destroyed()) {
+            TRACE
+            destroy();
+        }
         unsigned char nonce[crypto_box_NONCEBYTES];
         memcpy(nonce, buf, crypto_box_NONCEBYTES);
         auto success = crypto_box_open_easy_afternm(reinterpret_cast<unsigned char *>(plain_),
@@ -90,9 +101,10 @@ void nkn_Local::run() {
                                                     nonce, enc_key_);
 
         total_in_bytes_ += len;
-
+        TRACE
         smux_->async_input(plain_, len - crypto_box_NONCEBYTES - crypto_box_MACBYTES,
                            [this, self, handler](std::error_code ec, std::size_t len) {
+                               TRACE
                                handler(ec, len);
                            });
     };
@@ -116,7 +128,11 @@ void nkn_Local::async_connect(std::function<void(std::shared_ptr<smux_sess>)> ha
 }
 
 void nkn_Local::do_sess_receive() {
+//    if (smux_->is_destroyed()) {
+//        destroy();
+//    }
     auto self = shared_from_this();
+    TRACE
     boost::asio::async_read(*sock_, boost::asio::buffer(sbuf_, 4),
                             [this, self](std::error_code ec, std::size_t sz) {
                                 if (ec) {
@@ -126,11 +142,17 @@ void nkn_Local::do_sess_receive() {
                                 }
                                 uint32_t buf_len;
                                 decode32u(reinterpret_cast<byte *>(sbuf_), &buf_len);
+                                TRACE
                                 boost::asio::async_read(*sock_, boost::asio::buffer(recv_msg_, buf_len),
                                                         [this, self, buf_len](std::error_code ec,
                                                                               std::size_t sz) {
+                                                            TRACE
+                                                            if(!in2) {
+                                                                return;
+                                                            }
                                                             in2(recv_msg_, sz,
                                                                 [this, self](std::error_code ec, std::size_t) {
+                                                                    TRACE
                                                                     if (ec) {
                                                                         TRACE
                                                                         //destroy();
@@ -141,7 +163,6 @@ void nkn_Local::do_sess_receive() {
                                                         });
                             });
 }
-
 
 void nkn_Local::negotiate_conn_metadata(shared_ptr<tcp::socket> sock, pb::ConnectionMetadata md) {
     auto self = shared_from_this();
@@ -193,13 +214,14 @@ void nkn_Local::negotiate_conn_metadata(shared_ptr<tcp::socket> sock, pb::Connec
 //}
 
 void nkn_Local::send_payment() {
+    TRACE
     auto self = shared_from_this();
     auto rpc = make_shared<JsonRPC>(GetRandomSeedRPCServerAddr());  // new RPC client
 
-    nanopay_ = Wallet::NanoPay::NewNanoPay(rpc, wallet_, remote_beneficiary_, 0, 2000);    // New Wallet::NanoPay
+    nanopay_ = Wallet::NanoPay::NewNanoPay(rpc, wallet_, remote_beneficiary_, 1, 2000);    // New Wallet::NanoPay
 
     smux_->async_write_frame(frame{VERSION, cmdSyn, 0, payment_stream_id_}, nullptr);
-
+    TRACE
     auto md = std::make_shared<pb::StreamMetadata>();
     md->set_port_id(0);
     md->set_service_id(ni_->service_id);
@@ -218,8 +240,10 @@ void nkn_Local::send_payment() {
 
     f.marshal(stream_metadata_buf_);
     memcpy(stream_metadata_buf_ + headerSize, buf_with_len, md_buf_len + 4);
+    TRACE
     smux_->async_write(stream_metadata_buf_, headerSize + md_buf_len + 4, [this, self]
             (std::error_code ec, std::size_t) {
+        TRACE
         payment_checker(payment_stream_id_);
     });
 }
@@ -261,6 +285,9 @@ void nkn_Local::payment_checker(uint32_t sid) {
                         }
                         break;
                     }
+                    if (!npTxn) {
+                        return;
+                    }
                     TXN::SignTransaction(npTxn, wallet_->account);
                     auto tx_payload_len = npTxn->ByteSizeLong();
                     char payload[tx_payload_len];
@@ -277,6 +304,7 @@ void nkn_Local::payment_checker(uint32_t sid) {
                     smux_->async_write(nanopay_buf_, tx_payload_len + 4 + headerSize,
                                        [this, weak_local, unpaid_bytes, now](std::error_code, std::size_t) {
                                            //unpaid_bytes_ -= unpaid_bytes;
+                                           TRACE
                                            paid_bytes_ += unpaid_bytes;
                                            last_payment_ = now;
                                        });
@@ -286,6 +314,7 @@ void nkn_Local::payment_checker(uint32_t sid) {
 }
 
 void nkn_Local::send_service_metadata() {
+    TRACE
     auto self = shared_from_this();
     smux_->async_write_frame(frame{VERSION, cmdSyn, 0, service_stream_id_}, nullptr);
 
@@ -318,9 +347,11 @@ void nkn_Local::send_service_metadata() {
     auto sess = std::make_shared<smux_sess>(context_, service_stream_id_, VERSION, std::weak_ptr<smux>(smux_));
     smux_->sessions_.emplace(std::make_pair(service_stream_id_, std::weak_ptr<smux_sess>(sess)));
 
+    TRACE
     sess->async_write(const_cast<char *>(service_metadata_buf_), encoded_len + 4,
                       [this, self, sess](std::error_code, std::size_t) {
                           //send_payment();
+                          TRACE
                       }
     );
 }
@@ -333,11 +364,13 @@ void nkn_Local::receive_service_metadata() {
         if (s) {
             s->async_read_some(service_metadata_buf_, 4,
                                [this, self, s](std::error_code, std::size_t len) {
+                                   TRACE
                                    uint32_t buf_len;
                                    decode32u(reinterpret_cast<byte *>(service_metadata_buf_), &buf_len);
                                    s->async_read_some(service_metadata_buf_, buf_len,
                                                       [this, self, s](std::error_code,
                                                                       std::size_t len) {
+                                                          TRACE
                                                           auto md_str = string(service_metadata_buf_, len);
                                                           auto decoded = base64::decode(md_str);
                                                           std::string raw_md(begin(decoded), end(decoded));

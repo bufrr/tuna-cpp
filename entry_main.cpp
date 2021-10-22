@@ -22,6 +22,7 @@ int start_entry(shared_ptr<node_info> ni, const string &local_ip, uint local_por
     auto en = std::make_shared<entry>(io_context, from, seed, ni, stop);
     en->run();
     io_context.run();
+    *stop = true;
     return 0;
 }
 
@@ -68,10 +69,10 @@ int m::run_main_no_args() {
     cout << "run_main_no_args()" << endl;
     bool stop = false;
     string ip = "127.0.0.1";
-    string seed = "8f42614443c8f0dd56d110def7efd64cd7954393c16b5af39da88ac4805e2cd7";
-    string pk = "bfa21f3b307e8ef2278739959785d310ed5fbc2cbfebd0ccd3dc94909adb8760";
+    string seed = "";
+    string pk = "7c2ebcc959fd076505377eb2105472612db9dae467f6f2c538df6c6ba6c189ad";
     int port = 2015;
-    string metadata = "\"Cg0xNTUuOTQuMTgyLjEyELrqARi76gEgAjoGMC4wMDAyQiROS05GZnhMb1RqNnBmYjExV1BwQ3dQQTl2OEhCVXFKZjhqckI=\"";
+    string metadata = "\"Cg02NC42NC4yNDUuMTQ5ELrqARi76gEgAToFMC4wMDE=\"";
     return run_main(const_cast<char *>(ip.c_str()), port, const_cast<char *>(seed.c_str()),
                     const_cast<char *>(pk.c_str()), const_cast<char *>(metadata.c_str()), &stop);
     // cout << ToString(0.00000108) << endl;

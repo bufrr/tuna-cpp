@@ -37,10 +37,14 @@ void entry::do_accept() {
         auto sock = std::make_shared<tcp::socket>(std::move(socket_));
         async_choose_local([this, self, sock](std::shared_ptr<nkn_Local> local) {
             if (!local) {
+                cerr << "accept but no local" << endl;
+                sock->close();
                 return;
             }
             local->async_connect([this, self, sock](std::shared_ptr<smux_sess> sess) {
                 if (!sess) {
+                    cerr << "sess is nullptr" << endl;
+                    sock->close();
                     return;
                 }
                 std::make_shared<nkn_client_session>(sock, sess)->run(ni_->service_id);

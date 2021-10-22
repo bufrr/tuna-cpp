@@ -72,7 +72,8 @@ message(STATUS "Building static version...")
 
 #add_executable(entry entry_main.cpp ${SOURCES})
 #target_link_libraries(entry /usr/local/Cellar/cpprestsdk/2.10.16/lib/libcpprest.dylib)
-#target_link_libraries(entry ${CMAKE_SOURCE_DIR}/nkn-sdk-cpp/cmake-build-debug/newnnn.a) #/usr/local/Cellar/openssl@1.1/1.1.1h/lib/libcrypto.a /usr/local/Cellar/gmp/6.2.1/lib/libgmp.a /usr/local/Cellar/gmp/6.2.1/lib/libgmpxx.a /usr/local/Cellar/cpprestsdk/2.10.16/lib/libcpprest.dylib /usr/local/Cellar/protobuf/3.14.0/lib/libprotobuf.a /usr/local/opt/libsodium/lib/libsodium.a)
+#target_link_libraries(entry /usr/local/lib/libboost_program_options.a)
+#target_link_libraries(entry /usr/local/Cellar/openssl@1.1/1.1.1h/lib/libcrypto.a /usr/local/Cellar/gmp/6.2.1/lib/libgmp.a /usr/local/Cellar/gmp/6.2.1/lib/libgmpxx.a /usr/local/Cellar/cpprestsdk/2.10.16/lib/libcpprest.dylib /usr/local/Cellar/protobuf/3.17.3/lib/libprotobuf.a /usr/local/opt/libsodium/lib/libsodium.a)
 #target_link_libraries(entry gflags)
 
 # Library
@@ -138,7 +139,8 @@ target_link_libraries(entry
         /Users/chow/test/libsodium_arm64.a
         /Users/chow/test/casablanca/Build_iOS/OpenSSL-for-iPhone/bin/iPhoneOS14.3-arm64.sdk/lib/libcrypto.a
         /Users/chow/test/casablanca/Build_iOS/OpenSSL-for-iPhone/bin/iPhoneOS14.3-arm64.sdk/lib/libssl.a
-        /Users/chow/test/casablanca/Build_iOS/build.Release.ios/lib/libcpprest.a
+        #/Users/chow/test/casablanca/Build_iOS/build.Release.ios/lib/libcpprest.a
+        /Users/chow/test/casablanca/Build_iOS/build.Release.ios/build.arm/src/cpprestsdk.build/Release-iphoneos/cpprest.build/Objects-normal/arm64/Binary/libcpprest.a
         /Users/chow/test/casablanca/Build_iOS/Apple-Boost-BuildScript/build/boost/1.74.0/ios/release/build/arm64/libboost.a
         /Users/chow/gmp-6.2.1-20201222225403/ios/lib/libgmp.a
         )

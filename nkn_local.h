@@ -34,6 +34,7 @@ struct node_info;
 class nkn_Local : public Local {
 public:
     nkn_Local(boost::asio::io_context &io_context, shared_ptr<Wallet::Wallet> w, shared_ptr<node_info> ni, bool *stop);
+    ~nkn_Local();
 
     void run() override;
 
@@ -66,9 +67,9 @@ private:
     atomic_int64_t paid_bytes_;
     boost::posix_time::ptime last_payment_;
 
-    char recv_msg_[65535]{};
-    char send_msg_[65536]{};
-    char plain_[65536]{};
+    char recv_msg_[38324]{};
+    char send_msg_[38324]{};
+    char plain_[38324]{};
     char nanopay_buf_[256]{};
     char stream_metadata_buf_[128];
     char service_metadata_buf_[4096];

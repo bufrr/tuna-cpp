@@ -15,6 +15,7 @@ void nkn_client_session::run(uint service_id) {
 }
 
 void nkn_client_session::async_write_stream_metadata(int port_id, int service_id, bool is_payment) {
+    TRACE
     auto self = shared_from_this();
 
     auto md = std::make_shared<pb::StreamMetadata>();
@@ -33,6 +34,7 @@ void nkn_client_session::async_write_stream_metadata(int port_id, int service_id
     sess_->async_write(stream_metadata_, md_buf_len + 4,
                        [this, self](std::error_code ec, std::size_t) {
                            if (ec) {
+                               TRACE
                                destroy();
                                return;
                            }
@@ -74,5 +76,6 @@ void nkn_client_session::run_exit_reverse(uint service_id) {
 }
 
 void nkn_client_session::call_this_on_destroy() {
+    TRACE
     client_session::call_this_on_destroy();
 }
