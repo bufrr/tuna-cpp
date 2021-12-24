@@ -8,8 +8,8 @@
 
 entry::entry(boost::asio::io_context &io_context,
              const tcp::endpoint &from,
-             const string &seed, shared_ptr<node_info> ni, bool *stop) : tuna(io_context, seed, std::move(ni), stop),
-                                                                         acceptor_(io_context, from) {
+             const string &seed, vector<shared_ptr<node_info>> nis, bool *stop) : tuna(io_context, seed, nis, stop),
+                                                                                  acceptor_(io_context, from) {
 }
 
 entry::~entry() {
@@ -18,12 +18,14 @@ entry::~entry() {
 
 void entry::run() {
     locals_.reserve(conn_num);
-    for (int i = 0; i < conn_num; i++) {
-        auto l = std::make_shared<nkn_Local>(context_, wallet_, ni_, stop_);
-        l->run();
-        l->send_payment();
-        locals_.emplace_back(l);
-    }
+
+    auto ni = nis_[nis_index_ % nis_.size()];
+    nis_index_++;
+    auto l = std::make_shared<nkn_Local>(context_, wallet_, ni, stop_);
+    l->run();
+    l->send_payment();
+    locals_.emplace_back(l);
+
     acceptor_.set_option(tcp::acceptor::reuse_address(true));
     do_accept();
 }
@@ -41,13 +43,13 @@ void entry::do_accept() {
                 sock->close();
                 return;
             }
-            local->async_connect([this, self, sock](std::shared_ptr<smux_sess> sess) {
+            local->async_connect([this, self, sock, local](std::shared_ptr<smux_sess> sess) {
                 if (!sess) {
                     cerr << "sess is nullptr" << endl;
                     sock->close();
                     return;
                 }
-                std::make_shared<nkn_client_session>(sock, sess)->run(ni_->service_id);
+                std::make_shared<nkn_client_session>(sock, sess)->run(local->get_service_id());
             });
         });
         do_accept();

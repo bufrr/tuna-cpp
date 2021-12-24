@@ -7,10 +7,8 @@
 #include <utility>
 
 tuna_exit::tuna_exit(boost::asio::io_context &io_context, const string &seed, const string local_ip,
-                     const int local_port,
-                     shared_ptr<node_info> ni, bool *stop)
-        : tuna(io_context, seed, std::move(ni),
-               stop), socket_(io_context), local_ip_(local_ip), local_port_(local_port) {
+                     const int local_port, vector<shared_ptr<node_info>> nis,bool *stop, tcp::socket socket)
+        : tuna(io_context, seed, nis, stop), local_ip_(local_ip), local_port_(local_port) {
     auto acc = Wallet::Account::NewAccount(seed);
     wallet_ = Wallet::NewWallet(acc, Wallet::WalletCfg::MergeWalletConfig(nullptr));
 //    remote_ep_ = tcp::endpoint(boost::asio::ip::address::from_string(ni_->ip), ni_->port);
@@ -25,7 +23,7 @@ void tuna_exit::run() {
     auto self = shared_from_this();
     locals_.reserve(conn_num);
     for (int i = 0; i < conn_num; i++) {
-        auto l = std::make_shared<nkn_Local>(context_, wallet_, ni_, stop_);
+        auto l = std::make_shared<nkn_Local>(context_, wallet_, nis_[i], stop_);
         l->run();
         locals_.emplace_back(l);
     }

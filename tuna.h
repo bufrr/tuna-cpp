@@ -15,8 +15,7 @@ static const int conn_num = 1;
 
 class tuna : public std::enable_shared_from_this<tuna>, public Destroy {
 public:
-    tuna(boost::asio::io_context &io_context, const string &seed,
-         shared_ptr<node_info> ni, bool *stop);
+    tuna(boost::asio::io_context &io_context, const string &seed, vector<shared_ptr<node_info>> nis, bool *stop);
 
     ~tuna() = default;
 
@@ -33,7 +32,9 @@ protected:
     tcp::socket socket_;
     std::vector<std::weak_ptr<nkn_Local>> locals_;
     shared_ptr<Wallet::Wallet> wallet_;
-    shared_ptr<node_info> ni_;
+    vector<shared_ptr<node_info>> nis_;
+    uint nis_index_;
+    //shared_ptr<node_info> ni_;
 
     //tcp::endpoint from_endpoint_;
     //tcp::endpoint to_endpoint_;

@@ -36,40 +36,52 @@ shared_ptr<node_info> get_node_info_from_pubsub(const string &topic, const strin
     return ni;
 }
 
-shared_ptr<node_info> get_node_info_from_metadata(const char* metadata) {
+vector<shared_ptr<node_info>> get_node_info_from_metadata(char* metadata) {
     rapidjson::Document doc;
     doc.Parse(metadata);
-    auto service_md = std::make_shared<pb::ServiceMetadata>();
-    auto decoded = base64::decode(doc.GetString());
-    std::string raw_md(begin(decoded), end(decoded));
-    service_md->ParseFromArray(raw_md.c_str(), raw_md.length());
+    vector<shared_ptr<node_info>> nis;
 
-    auto ip = service_md->ip();
-    auto price = service_md->price();
-    auto port = service_md->tcp_port();
-    auto beneficiary_addr = service_md->beneficiary_addr();
-    auto service_id = service_md->service_id();
-//    if (beneficiary_addr.empty()) {
-//        beneficiary_addr = NKN::ED25519::PubKey(pk).toProgramHash().toAddress();
-//    }
+    for (auto &v: doc.GetArray()) {
+        auto service_md = std::make_shared<pb::ServiceMetadata>();
+        auto decoded = base64::decode(v.GetString());
+        std::string raw_md(decoded.begin(), decoded.end());
+        service_md->ParseFromString(raw_md);
 
-    auto ni = make_shared<node_info>(node_info{ip, port, service_id, price, beneficiary_addr});
-    return ni;
+        auto ip = service_md->ip();
+        auto price = service_md->price();
+        auto port = service_md->tcp_port();
+        auto beneficiary_addr = service_md->beneficiary_addr();
+        auto service_id = service_md->service_id();
+        auto ni = make_shared<node_info>(node_info{ip, port, service_id, price, beneficiary_addr});
+        nis.push_back(ni);
+    }
+
+    return nis;
 }
 
 uint32_t read_var_bytes(std::shared_ptr<tcp::socket> s, char *buf) {
-    boost::asio::read(*s, boost::asio::buffer(buf, 4));
+    boost::system::error_code ec;
+    boost::asio::read(*s, boost::asio::buffer(buf, 4), ec);
+    if (ec) {
+        cerr << ec.message() << endl;
+        return 0;
+    }
     uint32_t msg_len;
     decode32u(reinterpret_cast<byte *>(buf), &msg_len);
-    boost::asio::read(*s, boost::asio::buffer(buf, msg_len));
+    boost::asio::read(*s, boost::asio::buffer(buf, msg_len), ec);
+    if (ec) {
+        cerr << ec.message() << endl;
+        return 0;
+    }
     return msg_len;
 }
 
 void write_var_bytes(std::shared_ptr<tcp::socket> s, char *buf, std::size_t len) {
     char len_buf[4];
     encode32u(reinterpret_cast<byte *>(len_buf), len);
-    boost::asio::write(*s, boost::asio::buffer(len_buf, 4));
-    boost::asio::write(*s, boost::asio::buffer(buf, len));
+    boost::system::error_code ec;
+    boost::asio::write(*s, boost::asio::buffer(len_buf, 4), ec);
+    boost::asio::write(*s, boost::asio::buffer(buf, len), ec);
 }
 
 int serialize_stream_metadata(int port_id, int service_id, bool is_payment, char *metadata, uint16_t *mlen) {

@@ -52,6 +52,8 @@ public:
 
     void connect_local_service(string ip, int port);
 
+    uint get_service_id();
+
 //    uint32_t read_var_bytes(std::shared_ptr<tcp::socket> s, char *buf);
 //
 //    static void write_var_bytes(std::shared_ptr<tcp::socket> s, char *buf, std::size_t len);

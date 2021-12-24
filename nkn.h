@@ -31,7 +31,7 @@ struct service {
 
 shared_ptr<node_info> get_node_info_from_pubsub(const string &topic, const string &pk);
 
-shared_ptr<node_info> get_node_info_from_metadata(const char* metadata);
+vector<shared_ptr<node_info>> get_node_info_from_metadata(char* metadata);
 
 uint32_t read_var_bytes(std::shared_ptr<tcp::socket> s, char *buf);
 

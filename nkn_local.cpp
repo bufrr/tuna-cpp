@@ -24,8 +24,8 @@ nkn_Local::nkn_Local(boost::asio::io_context &io_context, shared_ptr<Wallet::Wal
             cout << "connect ok" << endl;
             break;
         }
-        cerr << ec->message() << endl;
-        std::this_thread::sleep_for(std::chrono::milliseconds(3000)); // sleep for 1 second
+        cerr << "new local err: " << ec->message() << endl;
+        std::this_thread::sleep_for(std::chrono::milliseconds(1000)); // sleep for 1 second
     }
 
     //generate random keypair
@@ -53,6 +53,7 @@ void nkn_Local::run() {
     md.set_encryption_algo(pb::ENCRYPTION_XSALSA20_POLY1305);
     md.set_public_key(msg_enc_pk_, crypto_sign_ed25519_PUBLICKEYBYTES);
     negotiate_conn_metadata(sock_, md);
+    TRACE
 
     out2 = [this, self](char *buf, std::size_t len, Handler handler) mutable {
         TRACE
@@ -137,7 +138,8 @@ void nkn_Local::do_sess_receive() {
                             [this, self](std::error_code ec, std::size_t sz) {
                                 if (ec) {
                                     TRACE
-                                    //destroy();
+                                    cerr << "async read err: " << ec.message() << endl;
+                                    destroy();
                                     return;
                                 }
                                 uint32_t buf_len;
@@ -147,7 +149,12 @@ void nkn_Local::do_sess_receive() {
                                                         [this, self, buf_len](std::error_code ec,
                                                                               std::size_t sz) {
                                                             TRACE
-                                                            if(!in2) {
+                                                            if (ec) {
+                                                                TRACE
+                                                                destroy();
+                                                                return;
+                                                            }
+                                                            if (!in2) {
                                                                 return;
                                                             }
                                                             in2(recv_msg_, sz,
@@ -155,7 +162,7 @@ void nkn_Local::do_sess_receive() {
                                                                     TRACE
                                                                     if (ec) {
                                                                         TRACE
-                                                                        //destroy();
+                                                                        destroy();
                                                                         return;
                                                                     }
                                                                     do_sess_receive();
@@ -168,6 +175,9 @@ void nkn_Local::negotiate_conn_metadata(shared_ptr<tcp::socket> sock, pb::Connec
     auto self = shared_from_this();
 
     auto read_len = read_var_bytes(sock, conn_metadata_);
+    if (read_len == 0) {
+        TRACE
+    }
     auto conn_md = std::make_shared<pb::ConnectionMetadata>();
 
     conn_md->ParseFromArray(conn_metadata_, read_len);
@@ -186,32 +196,6 @@ void nkn_Local::negotiate_conn_metadata(shared_ptr<tcp::socket> sock, pb::Connec
     auto ss = s1 + s2;
     crypto_hash_sha256(enc_key_, reinterpret_cast<const unsigned char *>(ss.c_str()), 64);;
 }
-
-//void nkn_Local::prepare_wallet() {
-//    fstream keystore;
-//    char wallet_file[] = "./wallet.json";
-//    keystore.open(wallet_file, fstream::in | fstream::out);
-//    if (!keystore) {
-//        keystore.open(wallet_file, fstream::in | fstream::out | fstream::trunc);
-//        auto acc = shared_ptr<Wallet::Account>(new Wallet::Account());
-//        auto w_cfg = make_shared<Wallet::WalletCfg>(AES_IV_t::Random<Uint128>(), AES_Key_t::Random<Uint256>(), "");
-//        wallet_ = Wallet::NewWallet(acc, w_cfg);
-//        keystore << *(wallet_->walletData);
-//    } else {
-//        std::stringstream buffer;
-//        buffer << keystore.rdbuf();
-//        auto w = NKN::Wallet::WalletFromJSON(buffer.str(), nullptr);
-//        wallet_ = w;
-//    }
-////    cout << wallet_.PubKey().toHexString() << endl;
-////    cout << wallet_.Seed().toHexString() << endl;
-////    cout << wallet_.PrivKey().toBytes() << "     " << sizeof wallet_.PrivKey().toBytes().c_str() << endl;
-////    cout << wallet_.PubKey().toProgramHash().toAddress() << endl;
-//    memcpy(msg_enc_pk_, wallet_->PubKey().toBytes().c_str(), sizeof msg_enc_pk_);
-//    memcpy(msg_enc_sk_, wallet_->PrivKey().toBytes().c_str(), sizeof msg_enc_sk_);
-////    cout << wallet_.PrivKey().toBytes().size() << endl;
-//
-//}
 
 void nkn_Local::send_payment() {
     TRACE
@@ -391,6 +375,10 @@ void nkn_Local::connect_local_service(string ip, int port) {
         //auto sock = make_shared<tcp::socket>(context_);
         std::make_shared<server_session>(context_, sess, local_endpoint)->run();
     });
+}
+
+uint nkn_Local::get_service_id() {
+    return ni_->service_id;
 }
 
 

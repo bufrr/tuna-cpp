@@ -11,7 +11,7 @@
 class entry : virtual public tuna {
 public:
     entry(boost::asio::io_context &io_context, const tcp::endpoint &from, const string &seed,
-          shared_ptr<node_info> ni, bool *stop);
+          vector<shared_ptr<node_info>> nis, bool *stop);
 
     ~entry();
 

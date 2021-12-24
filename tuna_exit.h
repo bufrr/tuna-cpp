@@ -10,8 +10,8 @@
 
 class tuna_exit : virtual public tuna {
 public:
-    tuna_exit(boost::asio::io_context &io_context, const string &seed, const string local_ip, const int local_port,
-              shared_ptr<node_info> ni, bool *stop);
+    tuna_exit(boost::asio::io_context &io_context, const string &seed, const string local_ip,
+              const int local_port, vector<shared_ptr<node_info>> nis, bool *stop, tcp::socket socket);
 
     ~tuna_exit();
 
@@ -23,7 +23,7 @@ private:
     //void connect_handler(const boost::system::error_code &err);
 
 private:
-    tcp::socket socket_;
+    //tcp::socket socket_;
     string local_ip_;
     uint local_port_;
 };

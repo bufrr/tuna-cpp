@@ -10,43 +10,23 @@ namespace po = boost::program_options;
 
 class m {
 public:
-    int run_main(char *ip, int port, char *seed, char *pk, char *metadata, bool *stop);
+    int run_main(char *ip, int port, char *seed, char *pk, char *metadata_json, bool *stop);
 
     int run_main_no_args();
 };
 
 
-int start_entry(shared_ptr<node_info> ni, const string &local_ip, uint local_port, const string &seed, bool *stop) {
+int start_entry(vector<shared_ptr<node_info>> nis, const string &local_ip, uint local_port, const string &seed,
+                bool *stop) {
     boost::asio::io_context io_context;
     tcp::endpoint from(boost::asio::ip::address::from_string(local_ip), local_port);
-    auto en = std::make_shared<entry>(io_context, from, seed, ni, stop);
+    auto en = std::make_shared<entry>(io_context, from, seed, nis, stop);
     en->run();
     io_context.run();
     *stop = true;
     return 0;
 }
 
-//int main(int argc, char **argv) {
-//    auto vm = parse(argc, argv);
-//    auto local_ip = get_host(vm["localaddr"].as<string>());
-//    auto local_port = get_port(vm["localaddr"].as<string>());
-//    auto remote_ip = get_host(vm["remoteaddr"].as<string>());
-//    auto remote_port = get_port(vm["remoteaddr"].as<string>());
-//    auto seed = vm["seed"].as<string>();
-//    auto price = vm["price"].as<string>();
-//    auto pk = vm["pubkey"].as<string>();
-//    auto service_id = vm["serviceid"].as<int>();
-//    auto beneficiary_addr = vm["beneficiary"].as<string>();
-//    auto stop = new bool(false);
-//
-//    auto metadata = "\"Cg02NC42NC4yNDUuMTQ5ELrqARi76gEgAToEMC4wMUIkTktORmZ4TG9UajZwZmIxMVdQcEN3UEE5djhIQlVxSmY4anJC\"";
-//    auto ni = get_node_info_from_metadata(metadata);
-//    start_entry(remote_ip, stoul(remote_port), local_ip, stoul(local_port), seed, pk, beneficiary_addr, price,
-//                service_id, stop);
-////    start_entry(remote_ip, stoul(remote_port), local_ip, stoul(local_port), seed, pk, beneficiary_addr, price,
-////                service_id, stop);
-//    return 0;
-//}
 int main(int argc, char **argv) {
     auto mm = m();
     mm.run_main_no_args();
@@ -55,12 +35,21 @@ int main(int argc, char **argv) {
 
 int m::run_main(char *ip, int port, char *seed, char *pk, char *metadata, bool *stop) {
     cout << "run_main()" << endl;
-    auto ni = get_node_info_from_metadata(metadata);
-    if (ni->beneficiary_addr.empty()) {
-        ni->beneficiary_addr = NKN::ED25519::PubKey(pk).toProgramHash().toAddress();
+    //auto md = string(metadata_json, md_len);
+    auto nis = get_node_info_from_metadata(metadata);
+    rapidjson::Document doc;
+    doc.Parse(pk);
+    auto pk_arr = doc.GetArray();
+    int index = 0;
+    for (auto &ni: nis) {
+        auto pubkey = pk_arr[index].GetString();
+        if (ni->beneficiary_addr.empty()) {
+            ni->beneficiary_addr = NKN::ED25519::PubKey(pubkey).toProgramHash().toAddress();
+        }
+        ni->pubkey = std::string(pubkey);
+        index++;
     }
-    ni->pubkey = std::string(pk);
-    start_entry(ni, ip, port, string(seed), stop);
+    start_entry(nis, ip, port, string(seed), stop);
 
     return 0;
 }
@@ -69,27 +58,12 @@ int m::run_main_no_args() {
     cout << "run_main_no_args()" << endl;
     bool stop = false;
     string ip = "127.0.0.1";
-    string seed = "";
-    string pk = "7c2ebcc959fd076505377eb2105472612db9dae467f6f2c538df6c6ba6c189ad";
     int port = 2015;
-    string metadata = "\"Cg02NC42NC4yNDUuMTQ5ELrqARi76gEgAToFMC4wMDE=\"";
+    string seed = "9df9843259353211b169b3390eec621925a29d5932e9826792e79a1558df0fb8";
+    string pk = R"(["b22be0cc0e9bcaa29cc90ee7469e0e8f48b1f7848c2a5573f17bbed1254e3e74", "7c2ebcc959fd076505377eb2105472612db9dae467f6f2c538df6c6ba6c189ad"])";
+    string metadata = R"(["Cg0xOC4yMTIuMTg1LjUzELrqARi76gEgAjoGMC4wMDAyQiROS05UNjFMdkJzQlNLblpZdE03TVk5dVY2VFlmZzllU1g4Ulc=", "Cg02NC42NC4yNDUuMTQ5EMTqARjF6gE6BjAuMDAwMg=="])";
+
     return run_main(const_cast<char *>(ip.c_str()), port, const_cast<char *>(seed.c_str()),
                     const_cast<char *>(pk.c_str()), const_cast<char *>(metadata.c_str()), &stop);
     // cout << ToString(0.00000108) << endl;
 }
-
-//class m {
-//public:
-//    int run_main();
-//};
-//
-//int m::run_main() {
-//    string seed = "";
-//
-//    string pk = "";
-//    string metadata = "\"Cg02NC42NC4yNDUuMTQ5ELrqARi76gEgAToEMC4wMUIkTktORmZ4TG9UajZwZmIxMVdQcEN3UEE5djhIQlVxSmY4anJC\"";
-//    auto stop = new bool(false);
-//    start_entry("127.0.0.1", 2015, seed, pk, metadata, stop);
-//    // cout << ToString(0.00000108) << endl;
-//    return 0;
-//}
