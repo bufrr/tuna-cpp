@@ -74,8 +74,3 @@ void nkn_client_session::run_exit_reverse(uint service_id) {
     do_pipe1();
     do_pipe2();
 }
-
-void nkn_client_session::call_this_on_destroy() {
-    TRACE
-    client_session::call_this_on_destroy();
-}

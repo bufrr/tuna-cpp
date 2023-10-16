@@ -19,21 +19,28 @@ entry::~entry() {
 void entry::run() {
     locals_.reserve(conn_num);
 
-    auto ni = nis_[nis_index_ % nis_.size()];
-    nis_index_++;
-    auto l = std::make_shared<nkn_Local>(context_, wallet_, ni, stop_);
-    l->run();
-    l->send_payment();
-    locals_.emplace_back(l);
+    while (true) {
+        auto ni = nis_[nis_index_ % nis_.size()];
+        nis_index_++;
+        auto l = std::make_shared<nkn_Local>(context_, wallet_, ni, stop_);
+        if (l->connected) {
+            l->run();
+            l->send_payment();
+            locals_.emplace_back(l);
 
-    acceptor_.set_option(tcp::acceptor::reuse_address(true));
-    do_accept();
+            acceptor_.set_option(tcp::acceptor::reuse_address(true));
+            do_accept();
+            break;
+        }
+    }
 }
 
 void entry::do_accept() {
     auto self = shared_from_this();
     acceptor_.async_accept(socket_, [this, self](std::error_code ec) {
+        TRACE
         if (ec) {
+            TRACE
             return;
         }
         auto sock = std::make_shared<tcp::socket>(std::move(socket_));
@@ -50,6 +57,7 @@ void entry::do_accept() {
                     return;
                 }
                 std::make_shared<nkn_client_session>(sock, sess)->run(local->get_service_id());
+                TRACE
             });
         });
         do_accept();

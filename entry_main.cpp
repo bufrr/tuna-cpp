@@ -20,7 +20,7 @@ int start_entry(vector<shared_ptr<node_info>> nis, const string &local_ip, uint 
                 bool *stop) {
     boost::asio::io_context io_context;
     tcp::endpoint from(boost::asio::ip::address::from_string(local_ip), local_port);
-    auto en = std::make_shared<entry>(io_context, from, seed, nis, stop);
+    auto en = make_shared<entry>(io_context, from, seed, nis, stop);
     en->run();
     io_context.run();
     *stop = true;
@@ -46,7 +46,7 @@ int m::run_main(char *ip, int port, char *seed, char *pk, char *metadata, bool *
         if (ni->beneficiary_addr.empty()) {
             ni->beneficiary_addr = NKN::ED25519::PubKey(pubkey).toProgramHash().toAddress();
         }
-        ni->pubkey = std::string(pubkey);
+        ni->pubkey = string(pubkey);
         index++;
     }
     start_entry(nis, ip, port, string(seed), stop);
@@ -58,10 +58,13 @@ int m::run_main_no_args() {
     cout << "run_main_no_args()" << endl;
     bool stop = false;
     string ip = "127.0.0.1";
-    int port = 2015;
+    int port = 2022;
     string seed = "9df9843259353211b169b3390eec621925a29d5932e9826792e79a1558df0fb8";
-    string pk = R"(["b22be0cc0e9bcaa29cc90ee7469e0e8f48b1f7848c2a5573f17bbed1254e3e74", "7c2ebcc959fd076505377eb2105472612db9dae467f6f2c538df6c6ba6c189ad"])";
-    string metadata = R"(["Cg0xOC4yMTIuMTg1LjUzELrqARi76gEgAjoGMC4wMDAyQiROS05UNjFMdkJzQlNLblpZdE03TVk5dVY2VFlmZzllU1g4Ulc=", "Cg02NC42NC4yNDUuMTQ5EMTqARjF6gE6BjAuMDAwMg=="])";
+    string pk = R"(["4341e9f8333e7794c75b8ddd9db27a77bedf5fe68aeb59c6e6928be6e7d3b41a"])";
+    string metadata = R"(["Cg02NC42NC4yNDUuMTQ5ELrqARi76gEgAjoGMC4wMDAyQiROS05OdHZyaGVMOU5UWWdaVTRqVnJiaTYzQU01Q3NnSkRNWnU="])";
+    //string pk = R"(["7e7d45eb6ad0701d3edbdad1a5cc69392a1adfc88ca05ed1834038995265133c"])";
+    //string metadata = R"(["Cg8yMDYuMTkwLjIzNS4xOTQQuuoBGLvqASACOgYwLjAwMDJCJE5LTk50dnJoZUw5TlRZZ1pVNGpWcmJpNjNBTTVDc2dKRE1adQ=="])";
+
 
     return run_main(const_cast<char *>(ip.c_str()), port, const_cast<char *>(seed.c_str()),
                     const_cast<char *>(pk.c_str()), const_cast<char *>(metadata.c_str()), &stop);

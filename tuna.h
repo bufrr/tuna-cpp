@@ -33,7 +33,7 @@ protected:
     std::vector<std::weak_ptr<nkn_Local>> locals_;
     shared_ptr<Wallet::Wallet> wallet_;
     vector<shared_ptr<node_info>> nis_;
-    uint nis_index_;
+    uint nis_index_{};
     //shared_ptr<node_info> ni_;
 
     //tcp::endpoint from_endpoint_;

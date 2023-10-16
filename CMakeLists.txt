@@ -38,7 +38,7 @@ set(SOURCES
         nkn-sdk-cpp/transaction/txBuilder.cpp
         nkn-sdk-cpp/pb/sigchain.pb.cc
         nkn-sdk-cpp/transaction/transaction.cpp tuna_exit.cpp tuna.cpp server_session.h server_session.cpp config.cpp
-        entry_main.cpp)
+        entry_main.cpp encrypt.cpp)
 
 # Headers
 set(HEADERS
@@ -67,11 +67,11 @@ message(STATUS "Building static version...")
 
 
 #include_directories(${tuna-cpp_SOURCE_DIR})
-include_directories(/opt/homebrew/Cellar/boost/1.76.0/include/)
+include_directories(/opt/homebrew/Cellar/boost/1.78.0_1/include/)
 #include_directories(/usr/local/include/)
 #link_directories(/usr/local/lib/)
-include_directories(/opt/homebrew/Cellar/protobuf/3.17.3_1/include/)
-include_directories(/opt/homebrew/Cellar/openssl@1.1/1.1.1l_1/include)
+include_directories(/opt/homebrew/Cellar/protobuf/3.19.4/include/)
+include_directories(/opt/homebrew/Cellar/openssl@1.1/1.1.1n/include)
 include_directories(/opt/homebrew/Cellar/cpprestsdk/2.10.18/include)
 include_directories(/opt/homebrew/Cellar/libsodium/1.0.18_1/include)
 include_directories(/opt/homebrew/Cellar/gmp/6.2.1_1/include)
@@ -93,12 +93,12 @@ add_subdirectory("smux-cpp")
 #add_library(entry STATIC ${SOURCES})
 add_executable(entry entry_main.cpp ${SOURCES})
 target_link_libraries(entry /opt/homebrew/Cellar/cpprestsdk/2.10.18/lib/libcpprest.dylib)
-target_link_libraries(entry /opt/homebrew/Cellar/boost/1.76.0/lib/libboost_program_options.a)
+target_link_libraries(entry /opt/homebrew/Cellar/boost/1.78.0_1/lib/libboost_program_options.a)
 target_link_libraries(entry /opt/homebrew/Cellar/libsodium/1.0.18_1/lib/libsodium.a)
-target_link_libraries(entry /opt/homebrew/Cellar/openssl@1.1/1.1.1l_1/lib/libcrypto.a)
+target_link_libraries(entry /opt/homebrew/Cellar/openssl@1.1/1.1.1n/lib/libcrypto.a)
 target_link_libraries(entry /opt/homebrew/Cellar/gmp/6.2.1_1/lib/libgmp.a)
 target_link_libraries(entry /opt/homebrew/Cellar/gmp/6.2.1_1/lib/libgmpxx.a)
-target_link_libraries(entry /opt/homebrew/Cellar/protobuf/3.17.3_1/lib/libprotobuf.a)
+target_link_libraries(entry /opt/homebrew/Cellar/protobuf/3.19.4/lib/libprotobuf.a)
 target_link_libraries(entry /Users/bufrr/src/nkn-sdk-cpp-priv/libnkn_sdk.a)
 
 

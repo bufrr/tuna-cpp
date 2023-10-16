@@ -14,19 +14,21 @@ nkn_Local::nkn_Local(boost::asio::io_context &io_context, shared_ptr<Wallet::Wal
         : Local(io_context), paid_bytes_(0), total_in_bytes_(0),
           total_out_bytes_(0), ni_(ni), wallet_(std::move(w)), stop_(stop), connected(false) {
     cerr << "ip: " << ni_->ip << " " << "price: " << ni_->price << endl;
-    while (true) {
-        auto ec = make_shared<boost::system::error_code>();
-        auto ep = make_shared<tcp::endpoint>(boost::asio::ip::address::from_string(ni_->ip), ni_->port);
-        auto s = boost::asio::ip::tcp::socket(io_context);
-        s.connect(*ep, *ec);
-        if (!(*ec)) {
-            sock_ = std::make_shared<boost::asio::ip::tcp::socket>(std::move(s));
-            cout << "connect ok" << endl;
-            break;
-        }
-        cerr << "new local err: " << ec->message() << endl;
-        std::this_thread::sleep_for(std::chrono::milliseconds(1000)); // sleep for 1 second
+
+    auto ec = make_shared<boost::system::error_code>();
+    auto ep = make_shared<tcp::endpoint>(boost::asio::ip::address::from_string(ni_->ip), ni_->port);
+    auto s = boost::asio::ip::tcp::socket(io_context);
+    s.connect(*ep, *ec);
+    if (!(*ec)) {
+        sock_ = std::make_shared<boost::asio::ip::tcp::socket>(std::move(s));
+        cout << "connect ok" << endl;
+    } else {
+        cerr << "local try to connect ip:" << ni_->ip << " " << "err: " << ec->message() << endl;
+        return;
     }
+    connected = true;
+    //std::this_thread::sleep_for(std::chrono::milliseconds(1000)); // sleep for 1 second
+
 
     //generate random keypair
     unsigned char random_seed[crypto_sign_ed25519_SEEDBYTES];
@@ -57,23 +59,28 @@ void nkn_Local::run() {
 
     out2 = [this, self](char *buf, std::size_t len, Handler handler) mutable {
         TRACE
+        if (is_destroyed()) {
+            return;
+        }
+        TRACE
         if (*stop_ || smux_->is_destroyed()) {
             TRACE
             destroy();
         }
         total_out_bytes_ += len;
-        unsigned char enc_msg[len + crypto_box_MACBYTES];
-        unsigned char nonce[crypto_box_NONCEBYTES];
-        randombytes_buf(nonce, crypto_box_NONCEBYTES); // auto generated on each connection
-
-        crypto_box_easy_afternm(enc_msg, reinterpret_cast<const unsigned char *>(buf), len, nonce, enc_key_);
-
-        //char enc_buf[len + 4 + crypto_box_NONCEBYTES + crypto_box_MACBYTES]; // lost data in stack
+        //unsigned char nonce[crypto_box_NONCEBYTES];
+        //randombytes_buf(nonce, crypto_box_NONCEBYTES); // auto generated on each connection
+        enc_dec_->encrypt(&send_msg_[4 + crypto_box_NONCEBYTES], len, buf, len, enc_dec_->nonce);
+        TRACE
         char len_buf[4];
         encode32u(reinterpret_cast<byte *>(len_buf), len + crypto_box_NONCEBYTES + crypto_box_MACBYTES);
         memcpy(send_msg_, len_buf, 4);
-        memcpy(&send_msg_[4], reinterpret_cast<const char *>(nonce), crypto_box_NONCEBYTES);
-        memcpy(&send_msg_[4 + crypto_box_NONCEBYTES], reinterpret_cast<char *>(enc_msg), len + crypto_box_MACBYTES);
+        memcpy(&send_msg_[4], reinterpret_cast<const char *>(enc_dec_->nonce), crypto_box_NONCEBYTES);
+        if (strcmp(reinterpret_cast<const char *>(enc_dec_->nonce),
+                   reinterpret_cast<const char *>(enc_dec_->max_nonce)) == 0) {
+            destroy(); // reach max nonce
+        }
+        increaseNonce(enc_dec_->nonce, crypto_box_NONCEBYTES);
         TRACE
         boost::asio::async_write(*sock_,
                                  boost::asio::buffer(send_msg_, len + 4 + crypto_box_NONCEBYTES + crypto_box_MACBYTES),
@@ -95,11 +102,19 @@ void nkn_Local::run() {
         }
         unsigned char nonce[crypto_box_NONCEBYTES];
         memcpy(nonce, buf, crypto_box_NONCEBYTES);
-        auto success = crypto_box_open_easy_afternm(reinterpret_cast<unsigned char *>(plain_),
-                                                    reinterpret_cast<const unsigned char *>(buf +
-                                                                                            crypto_box_NONCEBYTES),
-                                                    len - crypto_box_NONCEBYTES,
-                                                    nonce, enc_key_);
+//        crypto_box_open_easy_afternm(reinterpret_cast<unsigned char *>(plain_),
+//                                     reinterpret_cast<const unsigned char *>(buf +
+//                                                                             crypto_box_NONCEBYTES),
+//                                     len - crypto_box_NONCEBYTES,
+//                                     nonce, enc_key_);
+
+//        if (nonce[0] >> 7!=0) {
+//            TRACE
+//            cerr << "error nonce initiator" << endl;
+//            destroy();
+//        }
+        enc_dec_->decrypt(plain_, len - crypto_box_NONCEBYTES - crypto_box_MACBYTES, buf + crypto_box_NONCEBYTES,
+                          len - crypto_box_NONCEBYTES, nonce);
 
         total_in_bytes_ += len;
         TRACE
@@ -194,7 +209,8 @@ void nkn_Local::negotiate_conn_metadata(shared_ptr<tcp::socket> sock, pb::Connec
     std::string s1(reinterpret_cast<const char *>(nonce_), 32);
     std::string s2(reinterpret_cast<const char *>(shared_), 32);
     auto ss = s1 + s2;
-    crypto_hash_sha256(enc_key_, reinterpret_cast<const unsigned char *>(ss.c_str()), 64);;
+    crypto_hash_sha256(enc_key_, reinterpret_cast<const unsigned char *>(ss.c_str()), 64);
+    enc_dec_ = make_shared<XSalsa20poly1305Encrypter>(enc_key_, sizeof enc_key_);
 }
 
 void nkn_Local::send_payment() {
@@ -202,7 +218,7 @@ void nkn_Local::send_payment() {
     auto self = shared_from_this();
     auto rpc = make_shared<JsonRPC>(GetRandomSeedRPCServerAddr());  // new RPC client
 
-    nanopay_ = Wallet::NanoPay::NewNanoPay(rpc, wallet_, remote_beneficiary_, 1, 2000);    // New Wallet::NanoPay
+    nanopay_ = Wallet::NanoPay::NewNanoPay(rpc, wallet_, remote_beneficiary_, 100, 2000);    // New Wallet::NanoPay
 
     smux_->async_write_frame(frame{VERSION, cmdSyn, 0, payment_stream_id_}, nullptr);
     TRACE
@@ -258,13 +274,18 @@ void nkn_Local::payment_checker(uint32_t sid) {
                     (duration.total_seconds() > MAX_PAYMENT_DURATION && unpaid_bytes > 0)) {
                     auto price = stof(ni_->price);
                     string cost = ToString(price * unpaid_bytes / (MiB));
-                    cout << "cost:" << cost << endl;
+                    cout << "cost:" << cost << " " << "addr:" << remote_beneficiary_ << endl;
                     std::error_code ec;
                     shared_ptr<pb::Transaction> npTxn;
+                    auto fee = 0.1 * price * unpaid_bytes / (MiB);
+                    if (fee < 0.00001) {
+                        fee = 0.00001;
+                    }
+                    auto txFee = ToString(fee);
                     for (int i = 0; i < 3; i++) {
-                        npTxn = nanopay_->IncrementAmount(cost, ec);
+                        npTxn = nanopay_->IncrementAmount(cost, txFee, ec);
                         if (ec) {
-                            cerr << ec.message() << endl;
+                            cerr << "increase amount err:" << ec.message() << endl;
                             continue;
                         }
                         break;

@@ -8,15 +8,19 @@ tuna::tuna(boost::asio::io_context &io_context, const string &seed, vector<share
         context_(io_context), socket_(io_context), nis_(nis), stop_(stop) {
     auto acc = Wallet::Account::NewAccount(seed);                       // new Random account
     wallet_ = Wallet::NewWallet(acc, Wallet::WalletCfg::MergeWalletConfig(nullptr));
+    cerr << "wallet addr:" << wallet_->Address() << endl;
 }
 
 void tuna::async_choose_local(std::function<void(std::shared_ptr<nkn_Local>)> f) {
     auto i = rand() % conn_num;
     auto local = locals_[i].lock();
     if ((!local) || local->is_destroyed()) {
-        auto ni = nis_[nis_index_ % nis_.size()];
+        auto ni = nis_[nis_index_/3 % nis_.size()];
         nis_index_++;
         local = std::make_shared<nkn_Local>(context_, wallet_, ni, stop_);
+//        if (!local) {
+//            f(nullptr);
+//        }
         local->run();
         local->send_payment();
         locals_[i] = local;

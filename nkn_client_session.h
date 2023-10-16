@@ -20,10 +20,6 @@ public:
 
     void async_write_service_metadata(int port_id, int service_id, bool is_payment);
 
-
-private:
-    void call_this_on_destroy() override;
-
 private:
     char stream_metadata_[128];
 };

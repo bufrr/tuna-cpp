@@ -21,6 +21,7 @@
 #include "server_session.h"
 #include "pb/tuna.pb.h"
 #include "config.h"
+#include "encrypt.h"
 
 #define MiB 1024*1024
 #define MAX_OVERDUE_BYTES 32*MiB
@@ -34,6 +35,7 @@ struct node_info;
 class nkn_Local : public Local {
 public:
     nkn_Local(boost::asio::io_context &io_context, shared_ptr<Wallet::Wallet> w, shared_ptr<node_info> ni, bool *stop);
+
     ~nkn_Local();
 
     void run() override;
@@ -98,6 +100,7 @@ private:
 
 private:
     char conn_metadata_[128];
+    shared_ptr<XSalsa20poly1305Encrypter> enc_dec_;
 };
 
 
